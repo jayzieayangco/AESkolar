@@ -98,7 +98,7 @@ export default function Teacher_Settings() {
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl h-full box-border">
           <div className="flex flex-col w-full">
-            <nav className="flex flex-col w-full gap-2.5 mt-12">
+            <nav className="flex flex-col w-full gap-2.5 mt-20">
               {sidebarItems.map((item) => {
                 const isActive = activeTab === item;
                 return (
@@ -119,7 +119,7 @@ export default function Teacher_Settings() {
           </div>
 
           {/* User Profile Control */}
-          <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-4">
+          <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
               <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
