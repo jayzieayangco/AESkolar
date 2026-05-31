@@ -108,7 +108,6 @@ export default function Teacher_Trash() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <span className="text-[#1e293b]/70 font-bold text-xl select-none mr-2">&gt;</span>
           </div>
         </div>
 
