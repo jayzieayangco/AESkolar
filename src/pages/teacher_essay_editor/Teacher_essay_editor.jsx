@@ -63,12 +63,22 @@ export default function Teacher_essay_editor() {
         
         {/* Header / Logo Area */}
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="AESkolar Logo" 
-            className="h-16 w-auto object-contain"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+          <button
+            onClick={() => navigate(-1)}
+            title="Go Back"
+            className="bg-transparent border-none p-0 m-0 cursor-pointer transition-all duration-200 hover:opacity-80 flex items-center focus:outline-none"
+          >
+            <img 
+              src="/logo.png" 
+              alt="AESkolar Logo - Go Back" 
+              className="h-16 w-auto object-contain"
+              onError={(e) => {
+                // Fallback placeholder display if image path is not yet configured
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+          </button>
           <div className="flex flex-col">
             <span className="text-[44px] font-bold text-[#1e293b] tracking-tight leading-none">
               AESkolar
