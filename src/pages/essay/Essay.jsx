@@ -10,6 +10,19 @@ export default function Essay() {
     navigate(route);
   }
 
+  // Intercept the logo click action to confirm navigation if unsaved content exists
+  const handleBackNavigation = () => {
+    // If there is text in the title or the essay block, prompt the user
+    if (title.trim() !== "" || essayText.trim() !== "") {
+      const confirmBack = window.confirm("Changes may not be saved, confirm going back?");
+      if (!confirmBack) {
+        return; // Terminate tracking sequence if user opts out
+      }
+    }
+    // Proceed safely to previous page
+    navigate(-1);
+  };
+
   // Intercept save action and redirect unauthenticated users to the sign-in screen
   const handleSaveDraft = () => {
     console.log("Draft save triggered on public page. Authentication required:", { title, essayText });
@@ -27,18 +40,24 @@ export default function Essay() {
       {/* LEFT SIDE: Input Workspace */}
       <div className="flex flex-col flex-1 h-full gap-4">
         
-        {/* Header / Logo Area */}
+        {/* Header / Logo Area with Dynamic Back Button Capabilities */}
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="AESkolar Logo" 
-            className="h-16 w-auto object-contain"
-            onError={(e) => {
-              // Fallback placeholder display if image path is not yet configured
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'block';
-            }}
-          />
+          <button
+            onClick={handleBackNavigation}
+            title="Go Back"
+            className="bg-transparent border-none p-0 m-0 cursor-pointer transition-all duration-200 hover:opacity-80 flex items-center focus:outline-none"
+          >
+            <img 
+              src="/logo.png" 
+              alt="AESkolar Logo - Go Back" 
+              className="h-16 w-auto object-contain"
+              onError={(e) => {
+                // Fallback placeholder display if image path is not yet configured
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+          </button>
 
           <div className="flex flex-col">
             <span className="text-[44px] font-bold text-[#1e293b] tracking-tight leading-none">
