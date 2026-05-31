@@ -28,6 +28,20 @@ export default function Student_Dashboard() {
     if (item === "Settings") navigate("/student_settings");
   };
 
+  // Triggers navigation to the essay editor while securely pushing task context metadata
+  const handleOpenEditor = () => {
+    if (selectedTask) {
+      navigate("/student_essay_editor", {
+        state: {
+          taskId: selectedTask.id,
+          title: selectedTask.title,
+          subject: selectedTask.subject,
+          instructions: selectedTask.instructions
+        }
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
       
@@ -49,7 +63,6 @@ export default function Student_Dashboard() {
             </span>
           </div>
         </div>
-
       </div>
 
       {/* MAIN CONTAINER LAYOUT */}
@@ -90,7 +103,7 @@ export default function Student_Dashboard() {
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto box-border pr-2 pb-6">
           
-          {/* DETAILED OVERLAY PANEL FOR CLICKED TO-DO TASKS (image_add85e.png structure) */}
+          {/* DETAILED OVERLAY PANEL FOR CLICKED TO-DO TASKS */}
           {selectedTask ? (
             <div className="flex flex-col w-full relative animate-fadeIn pr-4">
               
@@ -134,9 +147,12 @@ export default function Student_Dashboard() {
                 </div>
               </div>
 
-              {/* Open Editor & Submit Action buttons placed OUTSIDE the card container bottom margin area */}
+              {/* Open Editor & Submit Action buttons */}
               <div className="flex items-center justify-end gap-4 mt-6">
-                <button className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer">
+                <button 
+                  onClick={handleOpenEditor}
+                  className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer"
+                >
                   Open Editor
                 </button>
                 <button className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer">
@@ -145,7 +161,7 @@ export default function Student_Dashboard() {
               </div>
             </div>
 
-          /* DETAILED OVERLAY PANEL FOR CLICKED RECENT GRADED ESSAYS (image_add87c.png structure) */
+          /* DETAILED OVERLAY PANEL FOR CLICKED RECENT GRADED ESSAYS */
           ) : selectedEssay ? (
             <div className="flex flex-col gap-4 animate-fadeIn pr-4 relative">
               <div className="flex items-start justify-between w-full">
@@ -158,7 +174,6 @@ export default function Student_Dashboard() {
                   </p>
                 </div>
                 
-                {/* Simplified x button replaced text route redirect labels */}
                 <button 
                   onClick={() => setSelectedEssay(null)}
                   className="text-slate-700 hover:text-slate-900 font-bold text-xl mt-4 mr-2 cursor-pointer transition-colors"
@@ -246,7 +261,6 @@ export default function Student_Dashboard() {
                     <div className="text-right">Date Graded</div>
                   </div>
 
-                  {/* Empty state conditional renderer wrapper */}
                   {gradedEssays.length === 0 ? (
                     <div className="flex items-center justify-center h-28 bg-white text-slate-400 italic text-sm">
                       No recently graded essays.
