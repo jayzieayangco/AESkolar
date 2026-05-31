@@ -175,10 +175,10 @@ export default function Student_Trash() {
                               Restore
                             </button>
                             <button 
-                              onClick={() => { alert("Deleting permanently..."); setShowMenu(false); }}
+                              onClick={() => { alert("Confirm deletion?"); setShowMenu(false); }}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
                             >
-                              Delete Forever
+                              Delete
                             </button>
                           </div>
                         )}
