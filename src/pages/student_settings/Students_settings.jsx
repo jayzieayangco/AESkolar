@@ -1,12 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "../../supabase/client";
+import {
+  getSession,
+  getUserProfile,
+  updateUserProfile,
+  signOut,
+  uploadProfilePic,
+} from "../../services/api.js";
+import { setCachedAvatarUrl } from "../../utils/profileAvatarStore.js";
+import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
 
 export default function Student_Settings() {
   const navigate = useNavigate();
   const [activeTab] = useState("Settings");
 
   // Form State Configurations
+  const [uploadingPic, setUploadingPic] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const profileInputRef = useRef(null);
   const [profile, setProfile] = useState({
     name: "Juan",
     email: "",
@@ -29,15 +40,59 @@ export default function Student_Settings() {
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveChanges = () => {
-    alert("Saving setting updates...");
+  useEffect(() => {
+    (async () => {
+      const { session } = await getSession();
+      if (!session) {
+        navigate("/sign_in");
+        return;
+      }
+      const { data } = await getUserProfile(session.user.id);
+      setProfile((p) => ({
+        ...p,
+        name: data?.full_name ?? p.name,
+        email: session.user.email ?? "",
+      }));
+    })();
+  }, [navigate]);
+
+  const handleProfileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadMessage("Please choose an image file.");
+      return;
+    }
+    try {
+      setUploadingPic(true);
+      setUploadMessage("Uploading...");
+      const { session } = await getSession();
+      if (!session) return;
+      const { url, error } = await uploadProfilePic(session.user.id, file);
+      if (error) throw error;
+      if (url) setCachedAvatarUrl(session.user.id, url);
+      setUploadMessage("Success! Profile picture updated.");
+    } catch (err) {
+      setUploadMessage(err.message || "Upload failed.");
+    } finally {
+      setUploadingPic(false);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    const { session } = await getSession();
+    if (!session) return;
+    const { error } = await updateUserProfile(session.user.id, { full_name: profile.name });
+    if (error) alert(error.message || "Save failed.");
+    else alert("Settings saved.");
   };
 
   const handleLogout = async () => {
     const confirmsLogout = window.confirm("Are you sure you want to log out?");
     if (confirmsLogout) {
       try {
-        await supabase.auth.signOut();
+        await signOut();
         sessionStorage.removeItem("auth_processed");
         navigate("/");
       } catch (error) {
@@ -98,11 +153,7 @@ export default function Student_Settings() {
 
           {/* User Profile Control */}
           <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+            <SidebarProfileIcon />
           </div>
         </div>
 
@@ -127,9 +178,24 @@ export default function Student_Settings() {
                 {/* Profile Picture Box */}
                 <div className="w-48 h-48 bg-transparent border border-slate-400/60 rounded-xl flex flex-col items-center justify-center gap-3 p-4 bg-slate-50/10">
                   <span className="text-slate-700 text-sm font-medium">Profile Picture</span>
-                  <button className="bg-white text-slate-800 font-medium py-1.5 px-6 rounded-lg shadow-sm border border-slate-200 text-xs transition-all duration-200 hover:bg-slate-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
-                    Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    ref={profileInputRef}
+                    onChange={handleProfileUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => profileInputRef.current?.click()}
+                    disabled={uploadingPic}
+                    className="bg-white text-slate-800 font-medium py-1.5 px-6 rounded-lg shadow-sm border border-slate-200 text-xs transition-all duration-200 hover:bg-slate-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingPic ? "Uploading..." : "Upload"}
                   </button>
+                  {uploadMessage && (
+                    <p className="text-xs text-slate-600 mt-2 text-center">{uploadMessage}</p>
+                  )}
                 </div>
 
                 {/* Input Fields */}

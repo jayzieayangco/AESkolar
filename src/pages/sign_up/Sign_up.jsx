@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "../../supabase/client"; 
+import {
+  signUpWithEmail,
+  signInWithGoogle,
+  syncUserToDatabase,
+  supabase,
+} from "../../services/api.js";
+import { isValidEmail, getAuthErrorMessage } from "../../utils/validation.js";
+import { useAuthSubmitGuard } from "../../hooks/useAuthSubmitGuard.js";
 
 export default function Sign_up() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { loading, isBlocked, runAuthAction, applyRateLimitCooldown } = useAuthSubmitGuard();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -18,31 +27,11 @@ export default function Sign_up() {
 
   // Handle Google OAuth sign-in / registration
   const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      const cleanOrigin = window.location.origin.replace(/\/$/, "");
-      const dynamicRedirectTarget = `${cleanOrigin}/role_selection`;
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: dynamicRedirectTarget,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-
-      if (error) {
-        console.error("Error signing up with Google:", error);
-        alert("Error registering with Google. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("An error occurred. Please try again.");
-    } finally {
-      setLoading(false);
+    setErrorMessage("");
+    const { error } = await runAuthAction(() => signInWithGoogle("/role_selection"));
+    if (error) {
+      applyRateLimitCooldown(error);
+      setErrorMessage(getAuthErrorMessage(error));
     }
   };
 
@@ -52,6 +41,9 @@ export default function Sign_up() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
+        await syncUserToDatabase(session, {
+          fullName: session.user.user_metadata?.full_name || formData.username,
+        });
         await sendConfirmationEmail(session.user.email, session.user);
         navigate("/role_selection");
       }
@@ -76,9 +68,42 @@ export default function Sign_up() {
     }
   };
 
-  const handleEmailSignUp = (e) => {
+  const handleEmailSignUp = async (e) => {
     e.preventDefault();
-    alert("Signing up with credentials...");
+    setErrorMessage("");
+    setEmailError("");
+
+    if (!formData.username.trim()) {
+      setErrorMessage("Please enter a username.");
+      return;
+    }
+    if (!isValidEmail(formData.email)) {
+      setEmailError("Enter a valid email (e.g. name@school.com).");
+      return;
+    }
+    if (formData.password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters.");
+      return;
+    }
+
+    const { data, error } = await runAuthAction(() =>
+      signUpWithEmail(formData.email.trim(), formData.password, {
+        full_name: formData.username,
+      })
+    );
+
+    if (error) {
+      applyRateLimitCooldown(error);
+      setErrorMessage(getAuthErrorMessage(error));
+      return;
+    }
+    if (data?.session) {
+      await syncUserToDatabase(data.session, { fullName: formData.username });
+      navigate("/role_selection");
+    } else {
+      alert("Check your email to confirm your account, then sign in.");
+      navigate("/sign_in");
+    }
   };
 
   return (
@@ -100,6 +125,12 @@ export default function Sign_up() {
             <h1 className="text-7xl font-semibold text-slate-800 tracking-tight mb-8 whitespace-nowrap text-right">
               Create your Account!
             </h1>
+
+            {(errorMessage || emailError) && (
+              <p className="text-red-600 text-sm mb-3 w-full text-right font-medium" role="alert">
+                {emailError || errorMessage}
+              </p>
+            )}
 
             {/* Form Elements Box: Aligns directly underneath the end edge of the header */}
             <form className="space-y-5 w-full max-w-md flex flex-col items-end" onSubmit={handleEmailSignUp}>
@@ -159,9 +190,10 @@ export default function Sign_up() {
               {/* Borderless Sign Up Submit Button */}
               <button
                 type="submit"
-                className="w-full text-center bg-white text-slate-800 font-bold py-3.5 px-6 rounded-2xl border-none shadow-md text-lg transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                disabled={isBlocked}
+                className="w-full text-center bg-white text-slate-800 font-bold py-3.5 px-6 rounded-2xl border-none shadow-md text-lg transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sign up
+                {loading ? "Creating account..." : "Sign up"}
               </button>
 
               {/* Horizontal Split Divider Lines */}
@@ -177,7 +209,7 @@ export default function Sign_up() {
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                disabled={loading}
+                disabled={isBlocked}
                 className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-5 py-3.5 font-bold text-gray-700 shadow-md border-none transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <img

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getSession, saveDocumentDraft } from "../../services/api.js";
 
 export default function Essay() {
   const navigate = useNavigate();
@@ -24,14 +25,24 @@ export default function Essay() {
   };
 
   // Intercept save action and redirect unauthenticated users to the sign-in screen
-  const handleSaveDraft = () => {
-    console.log("Draft save triggered on public page. Authentication required:", { title, essayText });
-    
-    // Notify the user why they are being redirected
-    alert("To save your essay progress and track your drafts, you must first be logged in.");
-    
-    // Redirect cleanly to the sign in page
-    navigate("/sign_in");
+  const handleSaveDraft = async () => {
+    const { session } = await getSession();
+    if (!session) {
+      alert("To save your essay progress and track your drafts, you must first be logged in.");
+      navigate("/sign_in");
+      return;
+    }
+    const { error } = await saveDocumentDraft({
+      userId: session.user.id,
+      role: "student",
+      title,
+      content: essayText,
+    });
+    if (error) {
+      alert(error.message || "Save failed.");
+      return;
+    }
+    navigate("/student_documents");
   };
 
   return (

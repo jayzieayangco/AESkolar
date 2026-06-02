@@ -1,10 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  db: { schema: "public" },
-});
-
-export default supabase;
+/**
+ * @deprecated Import from `../lib/supabaseClient.js` instead.
+ * Kept for backward compatibility with existing pages.
+ */
+export { default, supabase, normalizeSupabaseUrl } from "../lib/supabaseClient.js";

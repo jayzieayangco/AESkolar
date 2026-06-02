@@ -45,3 +45,16 @@ function App() {
 }
 
 export default App
+
+// import TestFetch from "./test"; // Make sure path is correct
+
+// function App() {
+//   return (
+//     <div className="App">
+//       <TestFetch />
+//       {/* Rest of your app here */}
+//     </div>
+//   );
+// }
+
+// export default App;

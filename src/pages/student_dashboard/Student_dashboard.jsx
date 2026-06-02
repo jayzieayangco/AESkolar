@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getSession,
+  getUserProfile,
+  fetchAssignmentTasks,
+  getStudentGradedEssays,
+  submitDocument,
+  getDocuments,
+} from "../../services/api.js";
+import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
 
 export default function Student_Dashboard() {
   const navigate = useNavigate();
   const [activeTab] = useState("Dashboard");
-
-  // State arrays configured exactly like the requested database format
-  const [todoTasks, setTodoTasks] = useState([
-    { id: 1, title: "Poetry Analysis", subject: "English 103", dueDate: "Due today, 11:59 PM", instructions: "Write a 1000-word poetry analysis essay discussing the poem's themes, tone, and literary devices..." }
-  ]); 
-
-  const [gradedEssays, setGradedEssays] = useState([
-    { id: 1, title: "The Great Gatsby", score: "95", gradedDate: "May 30, 2026", subject: "English 103", submittedDate: "May 20, 2026, 11:45 PM", wordCount: "120", content: "In The Great Gatsby...", feedback: "Excellent structural overview..." }
-  ]);
+  const [userName, setUserName] = useState("Student");
+  const [todoTasks, setTodoTasks] = useState([]);
+  const [gradedEssays, setGradedEssays] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
   // Detail View Active Overlays State
   const [selectedTask, setSelectedTask] = useState(null);
@@ -41,6 +45,57 @@ export default function Student_Dashboard() {
       });
     }
   };
+
+  const handleSubmit = async () => {
+    if (!selectedTask) return;
+    try {
+      setSubmitting(true);
+      const { session } = await getSession();
+      if (!session) return;
+      const { data: docs } = await getDocuments({
+        userId: session.user.id,
+        role: "student",
+        assignmentTaskId: selectedTask.id,
+      });
+      const draft = docs?.find((d) => d.status === "draft") ?? docs?.[0];
+      if (!draft) {
+        alert("Create and save a draft in the editor before submitting.");
+        return;
+      }
+      const { error } = await submitDocument(draft.id);
+      if (error) throw error;
+      alert("Submitted successfully.");
+      setSelectedTask(null);
+    } catch (err) {
+      alert(err.message || "Submit failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { session } = await getSession();
+      if (!session) {
+        navigate("/sign_in");
+        return;
+      }
+      const { data: profile } = await getUserProfile(session.user.id);
+      setUserName(profile?.full_name || "Student");
+      const { data: tasks } = await fetchAssignmentTasks();
+      setTodoTasks(
+        (tasks ?? []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          subject: "Assignment",
+          dueDate: t.created_at ? `Due ${new Date(t.created_at).toLocaleDateString()}` : "—",
+          instructions: t.instruction || "No instructions provided.",
+        }))
+      );
+      const { data: graded } = await getStudentGradedEssays(session.user.id);
+      setGradedEssays(graded ?? []);
+    })();
+  }, [navigate]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
@@ -92,11 +147,7 @@ export default function Student_Dashboard() {
           </div>
 
           <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+            <SidebarProfileIcon />
           </div>
         </div>
 
@@ -111,7 +162,7 @@ export default function Student_Dashboard() {
               <div className="flex items-start justify-between w-full">
                 <div className="flex flex-col">
                   <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
-                    Welcome back, Juan!
+                    Welcome back, {userName}!
                   </h1>
                   <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
                     Here's what's happening with your tasks.
@@ -155,8 +206,12 @@ export default function Student_Dashboard() {
                 >
                   Open Editor
                 </button>
-                <button className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer">
-                  Submit
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? "Submitting..." : "Submit"}
                 </button>
               </div>
             </div>
@@ -207,7 +262,7 @@ export default function Student_Dashboard() {
             <>
               <div>
                 <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
-                  Welcome back, Juan!
+                  Welcome back, {userName}!
                 </h1>
                 <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
                   Here's what's happening with your tasks.
@@ -236,7 +291,7 @@ export default function Student_Dashboard() {
                             <span className="text-sm font-medium text-slate-500 mt-0.5">{task.subject}</span>
                           </div>
                           <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                            {task.dueDate.split(',')[0]}
+                            {(task.dueDate || "").split(",")[0]}
                           </span>
                         </div>
                         <div className="p-4 bg-white">

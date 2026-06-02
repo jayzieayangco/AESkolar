@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getSession,
+  fetchTrash,
+  restoreDocument,
+  deleteDocument,
+} from "../../services/api.js";
+import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
 
 export default function Student_Trash() {
   const navigate = useNavigate();
   const [activeTab] = useState("Trash");
-  
-  // Controls individual deleted file contextual dropdown popups natively
-  const [showMenu, setShowMenu] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
   const dropdownRef = useRef(null);
-
-  // Manage your trash items state
-  // Setting this to an empty array ([]) will automatically preview the empty state interface
-  const [trashItems, setTrashItems] = useState([
-    { id: 1, title: "Consectetur" }
-  ]);
+  const [trashItems, setTrashItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Clean layout matching student views (No Settings or Grade Essays tabs)
   const sidebarItems = ["Dashboard", "Documents", "Trash", "Settings"];
@@ -26,11 +28,35 @@ export default function Student_Trash() {
     if (item === "Settings") navigate("/student_settings");
   };
 
-  // Safely close popup context windows if user clicks outside of layout bounds
+  const loadTrash = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+    const { session } = await getSession();
+    if (!session) {
+      navigate("/sign_in");
+      return;
+    }
+    const { data, error } = await fetchTrash({
+      userId: session.user.id,
+      role: "student",
+    });
+    if (error) {
+      setErrorMessage(error.message || "Failed to load trash.");
+      setTrashItems([]);
+    } else {
+      setTrashItems(data ?? []);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadTrash();
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowMenu(false);
+        setActiveMenuId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -102,11 +128,7 @@ export default function Student_Trash() {
 
           {/* User Account Access Profile Control */}
           <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+            <SidebarProfileIcon />
           </div>
         </div>
 
@@ -123,8 +145,14 @@ export default function Student_Trash() {
             </p>
           </div>
 
+          {errorMessage && (
+            <p className="text-red-600 text-sm font-medium">{errorMessage}</p>
+          )}
+
           {/* CONDITIONAL TRASH GRID VIEWPORT */}
-          {trashItems.length === 0 ? (
+          {isLoading ? (
+            <p className="text-slate-600 text-sm">Loading trash...</p>
+          ) : trashItems.length === 0 ? (
             
             /* EMPTY TRASH FALLBACK STATE (Matches image_93fe57.png) */
             <div className="flex-1 flex flex-col items-center justify-center pr-24 pb-20 select-none animate-fadeIn">
@@ -156,26 +184,35 @@ export default function Student_Trash() {
                       </span>
                       
                       {/* Interactive Dual-Dot Popover Action Menu */}
-                      <div className="relative" ref={dropdownRef}>
+                      <div className="relative" ref={activeMenuId === file.id ? dropdownRef : null}>
                         <button 
-                          onClick={() => setShowMenu(!showMenu)}
+                          onClick={() => setActiveMenuId(activeMenuId === file.id ? null : file.id)}
                           className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 transition-all cursor-pointer"
                         >
                           <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block"></span>
                           <span className="w-2.5 h-2.5 bg-[#cbd5e1] rounded-full inline-block"></span>
                         </button>
 
-                        {/* Floating Action Dropdown */}
-                        {showMenu && (
+                        {activeMenuId === file.id && (
                           <div className="absolute left-full top-0 ml-1 z-30 w-36 bg-[#7ba4cc] border border-[#6993bc] rounded-lg shadow-lg overflow-hidden flex flex-col transform origin-top-left transition-all duration-100">
                             <button 
-                              onClick={() => { alert("Restoring document..."); setShowMenu(false); }}
+                              onClick={async () => {
+                                await restoreDocument(file.id);
+                                loadTrash();
+                                setActiveMenuId(null);
+                              }}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               Restore
                             </button>
                             <button 
-                              onClick={() => { alert("Confirm deletion?"); setShowMenu(false); }}
+                              onClick={async () => {
+                                if (window.confirm("Permanently delete this document?")) {
+                                  await deleteDocument(file.id);
+                                  loadTrash();
+                                }
+                                setActiveMenuId(null);
+                              }}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
                             >
                               Delete

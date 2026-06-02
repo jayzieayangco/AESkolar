@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../supabase/client";
+import { syncUserToDatabase } from "../../services/api.js";
 
 export default function Landing_Page() {
   const navigate = useNavigate();
@@ -9,8 +10,9 @@ export default function Landing_Page() {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
+        if (event === "SIGNED_IN") await syncUserToDatabase(session);
         navigate("/role_selection");
       }
     });

@@ -1,19 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getSession,
+  fetchDocuments,
+  searchDocuments,
+  uploadDocumentFromFile,
+  moveDocumentToTrash,
+  downloadDocumentContent,
+} from "../../services/api.js";
+import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
 
 export default function Student_Documents() {
   const navigate = useNavigate();
   const [activeTab] = useState("Documents");
-  
-  // Controls individual file contextual menu popups
-  const [showMenu, setShowMenu] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
-
-  // Manage documents state here. 
-  // Changing this to an empty array ([]) will automatically toggle the empty state view.
-  const [documents, setDocuments] = useState([
-    { id: 1, title: "Consectetur" }
-  ]);
 
   // Clean layout matching student views (Including Settings tab now)
   const sidebarItems = ["Dashboard", "Documents", "Trash", "Settings"];
@@ -25,16 +31,78 @@ export default function Student_Documents() {
     if (item === "Settings") navigate("/student_settings");
   };
 
-  // Triggers redirection to the student essay editor layout
   const handleCreateDocument = () => {
     navigate("/student_essay_editor");
   };
 
-  // Safely close popup context windows if user clicks outside of bounds
+  const loadDocuments = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+    const { session } = await getSession();
+    if (!session) {
+      setErrorMessage("Please sign in again.");
+      setIsLoading(false);
+      navigate("/sign_in");
+      return;
+    }
+    const filters = {
+      userId: session.user.id,
+      role: "student",
+    };
+    const { data, error } = searchQuery.trim()
+      ? await searchDocuments({ ...filters, query: searchQuery.trim(), excludeStatus: "trash" })
+      : await fetchDocuments(filters);
+    if (error) {
+      setErrorMessage(error.message || "Failed to load documents.");
+      setDocuments([]);
+    } else {
+      setDocuments(data || []);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, [searchQuery]);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = null;
+    if (!file) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    const { session } = await getSession();
+    if (!session) {
+      setErrorMessage("Upload failed. Please sign in again.");
+      setIsLoading(false);
+      return;
+    }
+    const { error } = await uploadDocumentFromFile(session.user.id, "student", file);
+    if (error) setErrorMessage(error.message || "Upload failed.");
+    else await loadDocuments();
+    setIsLoading(false);
+  };
+
+  const handleDownload = (file) => {
+    downloadDocumentContent(file);
+    setActiveMenuId(null);
+  };
+
+  const handleDelete = async (file) => {
+    const { error } = await moveDocumentToTrash(file.id);
+    if (error) alert(error.message || "Could not move to trash.");
+    else await loadDocuments();
+    setActiveMenuId(null);
+  };
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowMenu(false);
+        setActiveMenuId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -67,7 +135,9 @@ export default function Student_Documents() {
         <div className="relative w-80">
           <input 
             type="text" 
-            placeholder="Search here" 
+            placeholder="Search here"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white text-slate-700 pl-5 pr-11 py-2.5 rounded-full border-0 outline-none focus:outline-none focus:ring-0 focus:border-transparent text-base font-normal placeholder-slate-400 shadow-sm"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 cursor-pointer">
@@ -106,11 +176,7 @@ export default function Student_Documents() {
 
           {/* User Account Access Profile Control */}
           <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+            <SidebarProfileIcon />
           </div>
         </div>
 
@@ -123,6 +189,12 @@ export default function Student_Documents() {
             </h1>
           </div>
 
+          {errorMessage && (
+            <p className="text-red-600 text-sm -mt-4">{errorMessage}</p>
+          )}
+
+          <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} />
+
           {/* Operational Core Utility Action Row Grid with Hover Effects */}
           <div className="flex items-center gap-6">
             <button 
@@ -131,13 +203,18 @@ export default function Student_Documents() {
             >
               Create Document
             </button>
-            <button className="bg-white text-slate-800 font-medium py-3 px-8 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.04)] cursor-pointer text-base transition-all duration-150 hover:bg-slate-50 hover:shadow-md active:scale-[0.98]">
+            <button
+              onClick={handleUploadClick}
+              className="bg-white text-slate-800 font-medium py-3 px-8 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.04)] cursor-pointer text-base transition-all duration-150 hover:bg-slate-50 hover:shadow-md active:scale-[0.98]"
+            >
               Upload File
             </button>
           </div>
 
           {/* CONDITIONAL CONTENT VIEWPORT DISPLAY */}
-          {documents.length === 0 ? (
+          {isLoading ? (
+            <p className="text-slate-600 text-sm">Loading documents...</p>
+          ) : documents.length === 0 ? (
             
             /* EMPTY VIEW PORT */
             <div className="flex-1 flex flex-col items-center justify-center pr-24 pb-20 select-none animate-fadeIn">
@@ -169,25 +246,36 @@ export default function Student_Documents() {
                         {file.title}
                       </span>
                       
-                      <div className="relative" ref={dropdownRef}>
+                      <div className="relative" ref={activeMenuId === file.id ? dropdownRef : null}>
                         <button 
-                          onClick={() => setShowMenu(!showMenu)}
+                          onClick={() => setActiveMenuId(activeMenuId === file.id ? null : file.id)}
                           className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 transition-all cursor-pointer"
                         >
                           <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block"></span>
                           <span className="w-2.5 h-2.5 bg-[#cbd5e1] rounded-full inline-block"></span>
                         </button>
 
-                        {showMenu && (
+                        {activeMenuId === file.id && (
                           <div className="absolute left-full top-0 ml-1 z-30 w-32 bg-[#7ba4cc] border border-[#6993bc] rounded-lg shadow-lg overflow-hidden flex flex-col transform origin-top-left transition-all duration-100">
                             <button 
-                              onClick={() => { alert("Downloading..."); setShowMenu(false); }}
+                              onClick={() => {
+                                navigate("/student_essay_editor", {
+                                  state: { documentId: file.id, title: file.title, content: file.content },
+                                });
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              Open
+                            </button>
+                            <button 
+                              onClick={() => handleDownload(file)}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               Download
                             </button>
                             <button 
-                              onClick={() => { alert("Deleting..."); setShowMenu(false); }}
+                              onClick={() => handleDelete(file)}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
                             >
                               Delete

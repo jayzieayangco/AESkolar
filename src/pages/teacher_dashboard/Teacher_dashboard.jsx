@@ -1,9 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getSession,
+  getUserProfile,
+  getDocuments,
+  createAssignmentTask,
+  createRubric,
+} from "../../services/api.js";
+import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
 
 export default function Teacher_Dashboard() {
   const navigate = useNavigate();
   const [activeTab] = useState("Dashboard");
+  const [userName, setUserName] = useState("Teacher");
+  const [stats, setStats] = useState({ graded: 0, pending: 0, flagged: 0 });
+  const [submissions, setSubmissions] = useState([]);
 
   const sidebarItems = [
     "Dashboard",
@@ -20,6 +31,79 @@ export default function Teacher_Dashboard() {
     if (item === "Trash") navigate("/teacher_trash");
     if (item === "Grade Essays") navigate("/teacher_grade_essay");
     if (item === "Settings") navigate("/teacher_settings");
+  };
+
+  const loadData = async () => {
+    const { session } = await getSession();
+    if (!session) {
+      navigate("/sign_in");
+      return;
+    }
+    const { data: profile } = await getUserProfile(session.user.id);
+    setUserName(profile?.full_name || "Teacher");
+    const { data: pendingDocs } = await getDocuments({ role: "student", status: "submitted" });
+    const { data: gradedDocs } = await getDocuments({ role: "student", status: "graded" });
+    setStats({
+      graded: gradedDocs?.length ?? 0,
+      pending: pendingDocs?.length ?? 0,
+      flagged: 0,
+    });
+    const rows = await Promise.all(
+      (pendingDocs ?? []).map(async (doc) => {
+        const { data: student } = await getUserProfile(doc.user_id);
+        return {
+          id: doc.id,
+          studentName: student?.full_name ?? "Student",
+          title: doc.title,
+          score: "—",
+          status: doc.status,
+        };
+      })
+    );
+    setSubmissions(rows);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [navigate]);
+
+  const handleUploadEssays = async () => {
+    const title = window.prompt("New assignment title:");
+    if (!title) return;
+    const instruction = window.prompt("Instructions:") || "";
+    const { error } = await createAssignmentTask({ title, instruction });
+    if (error) alert(error.message);
+    else {
+      alert("Assignment created.");
+      loadData();
+    }
+  };
+
+  const handleUploadRubric = async () => {
+    const taskId = window.prompt("Assignment task ID (integer):");
+    const name = window.prompt("Rubric name:");
+    if (!taskId || !name) return;
+    const { error } = await createRubric({
+      assignment_task_id: Number(taskId),
+      name,
+      description: "",
+    });
+    if (error) alert(error.message);
+    else alert("Rubric created.");
+  };
+
+  const handleExportGrades = () => {
+    const csv = [
+      ["Student", "Essay", "Status", "Score"].join(","),
+      ...submissions.map((s) => [s.studentName, s.title, s.status, s.score].join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "grades-export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -71,21 +155,7 @@ export default function Teacher_Dashboard() {
 
           {/* User Profile Avatar Container */}
           <div className="flex items-center justify-start pt-5 px-6 border-t border-white/10 mb-2">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg
-                className="w-6 h-6 text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </div>
+            <SidebarProfileIcon />
           </div>
         </div>
 
@@ -93,7 +163,7 @@ export default function Teacher_Dashboard() {
         <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto box-border pr-2 pb-6">
           <div>
             <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight">
-              Welcome back, Teacher!
+              Welcome back, {userName}!
             </h1>
             <p className="text-xs text-[#475569] tracking-wide">
               Here's what's happening with your tasks.
@@ -101,10 +171,16 @@ export default function Teacher_Dashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+            <button
+              onClick={handleUploadEssays}
+              className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+            >
               Upload New Essays
             </button>
-            <button className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+            <button
+              onClick={handleUploadRubric}
+              className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+            >
               Upload Rubric
             </button>
           </div>
@@ -118,19 +194,19 @@ export default function Teacher_Dashboard() {
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Total Graded
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2"></span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.graded}</span>
               </div>
               <div className="bg-white border border-[#cbd5e1] rounded-xl p-5 shadow-sm h-28 flex flex-col justify-start">
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Pending
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2"></span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.pending}</span>
               </div>
               <div className="bg-white border border-[#cbd5e1] rounded-xl p-5 shadow-sm h-28 flex flex-col justify-start">
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Flagged for Review
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2"></span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.flagged}</span>
               </div>
             </div>
           </div>
@@ -140,7 +216,10 @@ export default function Teacher_Dashboard() {
               <h2 className="text-base font-semibold text-[#1e293b] tracking-wide">
                 Student Submission List
               </h2>
-              <button className="bg-white text-slate-800 font-medium py-1.5 px-4 border border-[#cbd5e1] rounded-lg shadow-sm cursor-pointer text-xs transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+              <button
+                onClick={handleExportGrades}
+                className="bg-white text-slate-800 font-medium py-1.5 px-4 border border-[#cbd5e1] rounded-lg shadow-sm cursor-pointer text-xs transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+              >
                 Export Grades
               </button>
             </div>
@@ -161,9 +240,23 @@ export default function Teacher_Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="w-full flex-1 overflow-y-auto block bg-white">
-                  <tr className="flex w-full border-b border-slate-50 text-slate-400 text-sm italic items-center justify-center h-32">
-                    <td>No active student submissions loaded yet.</td>
-                  </tr>
+                  {submissions.length === 0 ? (
+                    <tr className="flex w-full border-b border-slate-50 text-slate-400 text-sm italic items-center justify-center h-32">
+                      <td>No active student submissions loaded yet.</td>
+                    </tr>
+                  ) : (
+                    submissions.map((row) => (
+                      <tr
+                        key={row.id}
+                        onClick={() => navigate("/teacher_grade_essay", { state: { essayId: row.id } })}
+                        className="flex w-full border-b border-slate-50 text-slate-700 text-sm items-center py-3 px-6 cursor-pointer hover:bg-slate-50"
+                      >
+                        <td className="flex-1">{row.studentName}</td>
+                        <td className="w-32 text-center">{row.score}</td>
+                        <td className="w-48 text-center capitalize">{row.status}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
