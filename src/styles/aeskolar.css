@@ -1,0 +1,49 @@
+/* Shared AESkolar layout tokens — prevents tab/header layout shift */
+
+@layer components {
+  .text-tab-standard {
+    @apply text-2xl font-medium tracking-wide;
+  }
+
+  .text-tab-active {
+    @apply text-2xl font-bold tracking-wide;
+  }
+
+  .text-page-title {
+    @apply text-[54px] font-bold text-[#1e293b] tracking-tight leading-none;
+  }
+
+  .text-brand-title {
+    @apply text-[32px] font-bold text-[#1e293b] tracking-tight leading-none;
+  }
+
+  .text-brand-subtitle {
+    @apply text-xs text-[#475569] mt-0.5 ml-0.5;
+  }
+
+  .btn-auth-primary {
+    @apply w-full rounded-2xl bg-slate-800 text-white py-3.5 font-bold shadow-md transition-all duration-200 transform hover:bg-slate-700 hover:shadow-lg hover:scale-[1.03] active:scale-[0.98] disabled:opacity-50 cursor-pointer;
+  }
+
+  .btn-auth-google {
+    @apply flex w-full items-center justify-center gap-3 rounded-2xl bg-white text-slate-800 px-5 py-3.5 font-bold shadow-sm border border-slate-200 transition-all duration-200 transform hover:shadow-md hover:scale-[1.03] active:scale-[0.98] cursor-pointer hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed;
+    /* Ensure focus visible for keyboard users */
+    outline: none;
+  }
+
+  .btn-auth-google:focus-visible {
+    @apply ring-2 ring-offset-2 ring-slate-300;
+  }
+
+  .btn-logout-header {
+    @apply text-[#1e293b]/90 hover:text-[#1e293b] text-base font-medium bg-transparent border-none cursor-pointer hover:underline underline-offset-4;
+  }
+
+  .grid-documents {
+    @apply flex flex-wrap gap-6;
+  }
+
+  .card-document {
+    @apply bg-white border border-[#cbd5e1]/60 rounded-xl shadow-sm h-56 w-full sm:w-[calc(33.333%-1rem)] min-w-[220px] max-w-sm flex flex-col relative overflow-visible;
+  }
+}

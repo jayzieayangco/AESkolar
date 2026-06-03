@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   getSession,
   getUserProfile,
-  fetchAssignmentTasks,
+  fetchStudentTodoTasks,
   getStudentGradedEssays,
   submitDocument,
   getDocuments,
 } from "../../services/api.js";
-import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
+import AppPageHeader from "../../components/AppPageHeader.jsx";
+import SidebarNav from "../../components/SidebarNav.jsx";
+import SidebarProfileRow from "../../components/SidebarProfileRow.jsx";
 
 export default function Student_Dashboard() {
   const navigate = useNavigate();
@@ -66,6 +68,16 @@ export default function Student_Dashboard() {
       if (error) throw error;
       alert("Submitted successfully.");
       setSelectedTask(null);
+      const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
+      setTodoTasks(
+        (tasks ?? []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          subject: "Assignment",
+          dueDate: t.created_at ? `Due ${new Date(t.created_at).toLocaleDateString()}` : "—",
+          instructions: t.instruction || "No instructions provided.",
+        }))
+      );
     } catch (err) {
       alert(err.message || "Submit failed.");
     } finally {
@@ -82,7 +94,7 @@ export default function Student_Dashboard() {
       }
       const { data: profile } = await getUserProfile(session.user.id);
       setUserName(profile?.full_name || "Student");
-      const { data: tasks } = await fetchAssignmentTasks();
+      const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
       setTodoTasks(
         (tasks ?? []).map((t) => ({
           id: t.id,
@@ -100,25 +112,7 @@ export default function Student_Dashboard() {
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
       
-      {/* BRANDING HEADER AREA + SEARCH CONTAINER */}
-      <div className="flex items-center justify-between pl-10 pb-4 pr-2">
-        <div className="flex items-center gap-1.5">
-          <img 
-            src="/logo.png" 
-            alt="AESkolar Logo" 
-            className="fixed h-17 w-auto object-contain"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-          <div className="flex flex-col justify-center ml-12">
-            <span className="text-[32px] font-bold text-[#1e293b] tracking-tight leading-none">
-              AESkolar
-            </span>
-            <span className="text-xs text-[#475569] mt-0.5 ml-0.5">
-              write better, learn smarter.
-            </span>
-          </div>
-        </div>
-      </div>
+      <AppPageHeader showSearch={false} />
 
       {/* MAIN CONTAINER LAYOUT */}
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
@@ -126,29 +120,10 @@ export default function Student_Dashboard() {
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <nav className="flex flex-col w-full gap-2.5 mt-20">
-              {sidebarItems.map((item) => {
-                const isActive = activeTab === item;
-                return (
-                  <button
-                    key={item}
-                    onClick={() => handleNavigation(item)}
-                    className={`w-full text-left py-4 px-10 text-2xl font-medium tracking-wide rounded-l-full transition-all duration-150 cursor-pointer ${
-                      isActive
-                        ? "bg-[#c5ecff] text-[#1e293b] font-bold pl-12 shadow-[-4px_4px_6px_rgba(0,0,0,0.05)]"
-                        : "text-[#1e293b]/80 hover:text-[#1e293b] hover:bg-white/10 hover:pl-11"
-                    }`}
-                  >
-                    {item}
-                  </button>
-                );
-              })}
-            </nav>
+            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
           </div>
 
-          <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <SidebarProfileIcon />
-          </div>
+          <SidebarProfileRow />
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
@@ -270,7 +245,7 @@ export default function Student_Dashboard() {
               </div>
 
               {/* TO-DO ASSIGNMENT BLOCK */}
-              <div className="flex flex-col gap-2 w-full max-w-[450px]">
+              <div className="flex flex-col gap-2 w-full">
                 <h3 className="text-xl font-bold text-slate-700 tracking-tight">To do</h3>
                 
                 {todoTasks.length === 0 ? (
@@ -278,12 +253,12 @@ export default function Student_Dashboard() {
                     No tasks assigned yet.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-4">
                     {todoTasks.map((task) => (
                       <div 
                         key={task.id}
                         onClick={() => setSelectedTask(task)}
-                        className="bg-white border border-[#cbd5e1]/50 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col cursor-pointer hover:border-slate-400 transition duration-150"
+                        className="bg-white border border-[#cbd5e1]/50 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col cursor-pointer hover:border-slate-400 transition duration-150 w-full sm:w-[calc(50%-0.5rem)] max-w-md"
                       >
                         <div className="flex items-start justify-between p-4 border-b border-slate-100 bg-slate-50/30">
                           <div className="flex flex-col">
@@ -309,8 +284,8 @@ export default function Student_Dashboard() {
               <div className="flex flex-col gap-2 w-full mt-2">
                 <h3 className="text-xl font-bold text-slate-700 tracking-tight">Recent Graded Essay</h3>
                 
-                <div className="w-full bg-white border border-[#cbd5e1]/50 rounded-xl shadow-sm overflow-hidden">
-                  <div className="grid grid-cols-3 border-b border-[#cbd5e1]/40 bg-slate-50/50 text-slate-500 font-semibold text-sm py-3.5 px-6">
+                <div className="w-full bg-white border border-[#cbd5e1]/50 rounded-xl shadow-sm overflow-hidden max-h-[220px] flex flex-col">
+                  <div className="grid grid-cols-3 border-b border-[#cbd5e1]/40 bg-slate-50/50 text-slate-500 font-semibold text-sm py-3.5 px-6 shrink-0">
                     <div>Assignment</div>
                     <div className="text-center">Score</div>
                     <div className="text-right">Date Graded</div>
@@ -321,7 +296,7 @@ export default function Student_Dashboard() {
                       No recently graded essays.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 overflow-y-auto flex-1 min-h-0">
                       {gradedEssays.map((essay) => (
                         <div 
                           key={essay.id}

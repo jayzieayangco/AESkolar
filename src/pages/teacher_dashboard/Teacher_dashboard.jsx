@@ -3,11 +3,18 @@ import { useNavigate } from "react-router-dom";
 import {
   getSession,
   getUserProfile,
-  getDocuments,
+  fetchTeacherSubmissions,
   createAssignmentTask,
-  createRubric,
+  createRubricWithValidation,
+  fetchTeacherAssignmentTasks,
+  updateAssignmentTask,
+  deleteAssignmentTask,
+  listAssignmentTasks,
 } from "../../services/api.js";
-import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
+import AppPageHeader from "../../components/AppPageHeader.jsx";
+import SidebarNav from "../../components/SidebarNav.jsx";
+import SidebarProfileRow from "../../components/SidebarProfileRow.jsx";
+import { formatDocumentStatus } from "../../utils/statusDisplay.js";
 
 export default function Teacher_Dashboard() {
   const navigate = useNavigate();
@@ -15,6 +22,7 @@ export default function Teacher_Dashboard() {
   const [userName, setUserName] = useState("Teacher");
   const [stats, setStats] = useState({ graded: 0, pending: 0, flagged: 0 });
   const [submissions, setSubmissions] = useState([]);
+  const [teacherTasks, setTeacherTasks] = useState([]);
 
   const sidebarItems = [
     "Dashboard",
@@ -41,8 +49,12 @@ export default function Teacher_Dashboard() {
     }
     const { data: profile } = await getUserProfile(session.user.id);
     setUserName(profile?.full_name || "Teacher");
-    const { data: pendingDocs } = await getDocuments({ role: "student", status: "submitted" });
-    const { data: gradedDocs } = await getDocuments({ role: "student", status: "graded" });
+    const { data: pendingDocs } = await fetchTeacherSubmissions(session.user.id, {
+      status: "submitted",
+    });
+    const { data: gradedDocs } = await fetchTeacherSubmissions(session.user.id, {
+      status: "graded",
+    });
     setStats({
       graded: gradedDocs?.length ?? 0,
       pending: pendingDocs?.length ?? 0,
@@ -56,11 +68,13 @@ export default function Teacher_Dashboard() {
           studentName: student?.full_name ?? "Student",
           title: doc.title,
           score: "—",
-          status: doc.status,
+          status: formatDocumentStatus(doc.status),
         };
       })
     );
     setSubmissions(rows);
+    const { data: tasks } = await fetchTeacherAssignmentTasks(session.user.id);
+    setTeacherTasks(tasks ?? []);
   };
 
   useEffect(() => {
@@ -71,7 +85,13 @@ export default function Teacher_Dashboard() {
     const title = window.prompt("New assignment title:");
     if (!title) return;
     const instruction = window.prompt("Instructions:") || "";
-    const { error } = await createAssignmentTask({ title, instruction });
+    const { session } = await getSession();
+    const { error } = await createAssignmentTask({
+      title,
+      instruction,
+      created_by: session?.user?.id ?? null,
+      status: "active",
+    });
     if (error) alert(error.message);
     else {
       alert("Assignment created.");
@@ -80,10 +100,16 @@ export default function Teacher_Dashboard() {
   };
 
   const handleUploadRubric = async () => {
-    const taskId = window.prompt("Assignment task ID (integer):");
+    const { data: tasks } = await listAssignmentTasks();
+    if (!tasks?.length) {
+      alert("Create an assignment first before uploading a rubric.");
+      return;
+    }
+    const taskList = tasks.map((t) => `${t.id}: ${t.title}`).join("\n");
+    const taskId = window.prompt(`Assignment task ID:\n${taskList}`);
     const name = window.prompt("Rubric name:");
     if (!taskId || !name) return;
-    const { error } = await createRubric({
+    const { error } = await createRubricWithValidation({
       assignment_task_id: Number(taskId),
       name,
       description: "",
@@ -92,7 +118,24 @@ export default function Teacher_Dashboard() {
     else alert("Rubric created.");
   };
 
+  const handleEditTask = async (task) => {
+    const title = window.prompt("Task title:", task.title);
+    if (!title) return;
+    const instruction = window.prompt("Instructions:", task.instruction || "") ?? "";
+    const { error } = await updateAssignmentTask(task.id, { title, instruction });
+    if (error) alert(error.message);
+    else loadData();
+  };
+
+  const handleDeleteTask = async (task) => {
+    if (!window.confirm(`Delete task "${task.title}"?`)) return;
+    const { error } = await deleteAssignmentTask(task.id);
+    if (error) alert(error.message);
+    else loadData();
+  };
+
   const handleExportGrades = () => {
+    if (!submissions.length) return;
     const csv = [
       ["Student", "Essay", "Status", "Score"].join(","),
       ...submissions.map((s) => [s.studentName, s.title, s.status, s.score].join(",")),
@@ -108,66 +151,63 @@ export default function Teacher_Dashboard() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
-      {/* BRANDING HEADER AREA */}
-      <div className="flex items-center gap-1.5 pl-10 pb-4">
-        <img
-          src="/logo.png"
-          alt="AESkolar Logo"
-          className="fixed h-17 w-auto object-contain"
-          onError={(e) => {
-            e.target.style.display = "none";
-          }}
-        />
-        <div className="flex flex-col justify-center ml-12">
-          <span className="text-[32px] font-bold text-[#1e293b] tracking-tight leading-none">
-            AESkolar
-          </span>
-          <span className="text-xs text-[#475569] mt-0.5 ml-0.5">
-            write better, learn smarter.
-          </span>
-        </div>
-      </div>
+      <AppPageHeader showSearch={false} />
 
       {/* MAIN CONTAINER LAYOUT */}
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <nav className="flex flex-col w-full gap-2.5 mt-20">
-              {sidebarItems.map((item) => {
-                const isActive = activeTab === item;
-                return (
-                  <button
-                    key={item}
-                    onClick={() => handleNavigation(item)}
-                    className={`w-full text-left py-4 px-10 text-2xl font-medium tracking-wide rounded-l-full transition-all duration-150 cursor-pointer ${
-                      isActive
-                        ? "bg-[#c5ecff] text-[#1e293b] font-bold pl-12 shadow-[-4px_4px_6px_rgba(0,0,0,0.05)]"
-                        : "text-[#1e293b]/80 hover:text-[#1e293b] hover:bg-white/10 hover:pl-11"
-                    }`}
-                  >
-                    {item}
-                  </button>
-                );
-              })}
-            </nav>
+            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
           </div>
 
-          {/* User Profile Avatar Container */}
-          <div className="flex items-center justify-start pt-5 px-6 border-t border-white/10 mb-2">
-            <SidebarProfileIcon />
-          </div>
+          <SidebarProfileRow />
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto box-border pr-2 pb-6">
           <div>
-            <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight">
-              Welcome back, {userName}!
-            </h1>
+            <h1 className="text-page-title">Welcome back, {userName}!</h1>
             <p className="text-xs text-[#475569] tracking-wide">
               Here's what's happening with your tasks.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h2 className="text-base font-semibold text-[#1e293b]">Your assignments</h2>
+            {teacherTasks.length === 0 ? (
+              <p className="text-sm text-slate-500 italic">No tasks yet. Create one below.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {teacherTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm min-w-[200px] max-w-xs flex-1"
+                  >
+                    <p className="font-semibold text-slate-800">{task.title}</p>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                      {task.instruction || "No instructions"}
+                    </p>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => handleEditTask(task)}
+                        className="text-xs text-slate-700 underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task)}
+                        className="text-xs text-red-600 underline cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -218,7 +258,8 @@ export default function Teacher_Dashboard() {
               </h2>
               <button
                 onClick={handleExportGrades}
-                className="bg-white text-slate-800 font-medium py-1.5 px-4 border border-[#cbd5e1] rounded-lg shadow-sm cursor-pointer text-xs transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                disabled={!submissions.length}
+                className="bg-white text-slate-800 font-medium py-1.5 px-4 border border-[#cbd5e1] rounded-lg shadow-sm cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Export Grades
               </button>

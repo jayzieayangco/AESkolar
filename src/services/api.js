@@ -46,6 +46,62 @@ export function logSupabaseError(error, context) {
   return error;
 }
 
+function toUserFriendlyDbError(error, context = "") {
+  if (!error) return error;
+  const message = String(error.message ?? "");
+  const lower = message.toLowerCase();
+
+  // Hide raw constraint strings from UI
+  if (lower.includes("null value in column") && lower.includes("assignment_task_id")) {
+    return { ...error, message: "Please select a task before saving." };
+  }
+  if (lower.includes("null value in column") && lower.includes("language_id")) {
+    return { ...error, message: "Please select a language before saving." };
+  }
+
+  // Generic fallback for common Postgres constraint noise
+  if (lower.includes("violates not-null constraint")) {
+    return { ...error, message: "Missing required fields. Please review your selections and try again." };
+  }
+  if (
+    lower.includes("foreign key") &&
+    (lower.includes("assignment_task") || lower.includes("fk_rubric") || lower.includes("rubrics"))
+  ) {
+    return {
+      ...error,
+      message:
+        "That assignment does not exist. Create the assignment first, then link the rubric.",
+    };
+  }
+
+  // Keep original by default
+  return error;
+}
+
+/** Current authenticated user id (null if signed out). */
+export async function getAuthUserId() {
+  const { session } = await getSession();
+  return session?.user?.id ?? null;
+}
+
+export async function assertAssignmentTaskExists(assignmentTaskId) {
+  const id = Number(assignmentTaskId);
+  if (!id || Number.isNaN(id)) {
+    return { exists: false, error: new Error("Please enter a valid assignment task ID.") };
+  }
+  const { data, error } = await getAssignmentTaskById(id);
+  if (error) return { exists: false, error };
+  if (!data) {
+    return {
+      exists: false,
+      error: new Error(
+        "That assignment does not exist. Create the assignment on your dashboard first, then upload the rubric."
+      ),
+    };
+  }
+  return { exists: true, task: data, error: null };
+}
+
 /**
  * @template T
  * @param {() => Promise<{ data: T | null; error: unknown }>} fn
@@ -56,11 +112,12 @@ async function safeQuery(fn, context) {
     const result = await fn();
     if (result.error) {
       logSupabaseError(result.error, context);
+      return { ...result, error: toUserFriendlyDbError(result.error, context) };
     }
     return result;
   } catch (err) {
     console.error(`[Supabase] ${context} — unexpected error`, err);
-    return { data: null, error: err };
+    return { data: null, error: toUserFriendlyDbError(err, context) };
   }
 }
 
@@ -240,15 +297,70 @@ export async function fetchAssignmentTasks() {
   return listAssignmentTasks();
 }
 
-export async function listAssignmentTasks() {
-  return safeQuery(
-    async () =>
-      supabase
-        .from("assignment_tasks")
-        .select("*")
-        .order("created_at", { ascending: false }),
-    "assignment_tasks.list"
+export async function listAssignmentTasks(filters = {}) {
+  return safeQuery(async () => {
+    let query = supabase.from("assignment_tasks").select("*");
+    if (filters.createdBy) {
+      query = query.eq("created_by", filters.createdBy);
+    }
+    if (filters.status) {
+      query = query.eq("status", filters.status);
+    }
+    return query.order("created_at", { ascending: false });
+  }, "assignment_tasks.list");
+}
+
+/** Student to-do: open tasks only (hide after submission). */
+export async function fetchStudentTodoTasks(userId) {
+  const { data: tasks, error: taskErr } = await listAssignmentTasks();
+  if (taskErr) return { data: null, error: taskErr };
+
+  const { data: docs, error: docErr } = await fetchDocuments({ userId });
+  if (docErr) return { data: null, error: docErr };
+
+  const completedIds = new Set(
+    (docs ?? [])
+      .filter((d) =>
+        ["submitted", "scored", "graded"].includes(String(d.status ?? "").toLowerCase())
+      )
+      .map((d) => d.assignment_task_id)
+      .filter(Boolean)
   );
+
+  const open = (tasks ?? []).filter((t) => !completedIds.has(t.id));
+  return { data: open, error: null };
+}
+
+/** Teacher-owned assignment tasks. */
+export async function fetchTeacherAssignmentTasks(teacherId) {
+  if (!teacherId) return { data: [], error: null };
+  const withOwner = await listAssignmentTasks({ createdBy: teacherId });
+  if (withOwner.data?.length) return withOwner;
+  return listAssignmentTasks();
+}
+
+/** Submissions for essays tied to a teacher's assignments. */
+export async function fetchTeacherSubmissions(teacherId, { status } = {}) {
+  return safeQuery(async () => {
+    const { data: tasks, error: taskErr } = await fetchTeacherAssignmentTasks(teacherId);
+    if (taskErr) return { data: null, error: taskErr };
+    const taskIds = (tasks ?? []).map((t) => t.id);
+    if (!taskIds.length) return { data: [], error: null };
+
+    let query = supabase
+      .from("documents")
+      .select("*")
+      .eq("role", "student")
+      .in("assignment_task_id", taskIds);
+
+    if (status) {
+      query = query.eq("status", status);
+    } else {
+      query = query.in("status", ["submitted", "scored", "graded"]);
+    }
+
+    return query.order("created_at", { ascending: false });
+  }, "documents.fetchTeacherSubmissions");
 }
 
 export async function getAssignmentTaskById(id) {
@@ -326,6 +438,110 @@ export async function deleteClass(id) {
 // documents
 // ---------------------------------------------------------------------------
 
+let _defaultAssignmentTaskId = null;
+let _defaultLanguageId = null;
+
+export async function verifyDatabaseSchema() {
+  // Ensures seed rows exist for FK references.
+  // If RLS blocks inserts, return a friendly error so the UI doesn't show raw DB messages.
+  return safeQuery(async () => {
+    const { data: langs, error: langErr } = await supabase
+      .from("languages")
+      .select("id,name")
+      .order("name", { ascending: true })
+      .limit(1);
+    if (langErr) return { data: null, error: langErr };
+
+    if (!langs?.length) {
+      console.warn("[Supabase] languages empty — inserting default");
+      const { data: inserted, error } = await supabase
+        .from("languages")
+        .insert({ name: "English" })
+        .select("id,name")
+        .single();
+      if (error) return { data: null, error };
+      console.debug("[Supabase] languages default inserted", inserted);
+      _defaultLanguageId = inserted?.id ?? null;
+    }
+
+    const { data: tasks, error: taskErr } = await supabase
+      .from("assignment_tasks")
+      .select("id,title")
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (taskErr) return { data: null, error: taskErr };
+
+    if (!tasks?.length) {
+      console.warn("[Supabase] assignment_tasks empty — inserting default");
+      const { data: inserted, error } = await supabase
+        .from("assignment_tasks")
+        .insert({
+          title: "General",
+          instruction: "General writing task",
+        })
+        .select("id,title")
+        .single();
+      if (error) return { data: null, error };
+      console.debug("[Supabase] assignment_tasks default inserted", inserted);
+      _defaultAssignmentTaskId = inserted?.id ?? null;
+    }
+
+    return { data: { ok: true }, error: null };
+  }, "db.verifyDatabaseSchema");
+}
+
+async function resolveDefaultAssignmentTaskId() {
+  if (_defaultAssignmentTaskId != null) return _defaultAssignmentTaskId;
+  const seed = await verifyDatabaseSchema();
+  if (seed.error) throw seed.error;
+  try {
+    const { data, error } = await supabase
+      .from("assignment_tasks")
+      .select("id,title")
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    const id = data?.[0]?.id ?? null;
+    if (!id) {
+      throw new Error(
+        "No assignment tasks exist. Create at least 1 row in assignment_tasks to avoid foreign key errors."
+      );
+    }
+    _defaultAssignmentTaskId = id;
+    console.debug("[Supabase] defaults.assignment_task_id", { id, title: data?.[0]?.title ?? null });
+    return id;
+  } catch (e) {
+    console.warn("[Supabase] defaults.assignment_task_id resolve failed", e);
+    throw e;
+  }
+}
+
+async function resolveDefaultLanguageId() {
+  if (_defaultLanguageId != null) return _defaultLanguageId;
+  const seed = await verifyDatabaseSchema();
+  if (seed.error) throw seed.error;
+  try {
+    const { data, error } = await supabase
+      .from("languages")
+      .select("id,name")
+      .order("name", { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    const id = data?.[0]?.id ?? null;
+    if (!id) {
+      throw new Error(
+        "No languages exist. Create at least 1 row in languages to avoid foreign key errors."
+      );
+    }
+    _defaultLanguageId = id;
+    console.debug("[Supabase] defaults.language_id", { id, name: data?.[0]?.name ?? null });
+    return id;
+  } catch (e) {
+    console.warn("[Supabase] defaults.language_id resolve failed", e);
+    throw e;
+  }
+}
+
 /** Apply filters; treats excludeStatus 'trash' as "library" (includes null + draft rows). */
 function applyDocumentQueryFilters(query, filters = {}) {
   if (filters.userId) query = query.eq("user_id", filters.userId);
@@ -351,7 +567,30 @@ function applyDocumentQueryFilters(query, filters = {}) {
  * Main Documents page: drafts + other non-trash statuses for the current user.
  */
 export async function fetchDocuments({ userId, role } = {}) {
-  return listDocuments({ userId, role, excludeStatus: "trash" });
+  // Privacy: always scope to the authenticated user's documents (RLS-aligned).
+  return safeQuery(async () => {
+    const uid = userId ?? (await getAuthUserId());
+    if (!uid) {
+      return { data: [], error: new Error("You must be signed in to view documents.") };
+    }
+    console.debug("[Supabase] documents.fetchDocuments", { userId: uid, role });
+    let query = supabase
+      .from("documents")
+      .select("*")
+      .eq("user_id", uid)
+      .or("status.is.null,status.neq.trash");
+    if (role) {
+      query = query.or(`role.eq.${role},role.is.null`);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
+  }, "documents.fetchDocuments");
+}
+
+/** @alias fetchStudentTodoTasks — assignment tasks for student dashboard */
+export async function fetchTasks(userId) {
+  return fetchStudentTodoTasks(userId);
 }
 
 /**
@@ -359,9 +598,18 @@ export async function fetchDocuments({ userId, role } = {}) {
  */
 export async function fetchTrash({ userId, role } = {}) {
   return safeQuery(async () => {
+    const filters = { userId, role, status: "trash" };
+    console.debug("[Supabase] documents.fetchTrash", filters);
     let query = supabase.from("documents").select("*").eq("status", "trash");
     query = applyDocumentQueryFilters(query, { userId, role });
-    return query.order("created_at", { ascending: false });
+    const result = await query.order("created_at", { ascending: false });
+    if (!result.error) {
+      console.debug("[Supabase] documents.fetchTrash result", {
+        rowCount: result.data?.length ?? 0,
+        filters,
+      });
+    }
+    return result;
   }, "documents.fetchTrash");
 }
 
@@ -370,10 +618,25 @@ export async function getDocuments(filters = {}) {
 }
 
 export async function listDocuments(filters = {}) {
+  if (filters.teacherId && filters.scope === "submissions") {
+    return fetchTeacherSubmissions(filters.teacherId, { status: filters.status });
+  }
+
   return safeQuery(async () => {
+    console.debug("[Supabase] documents.list", filters);
     let query = supabase.from("documents").select("*");
+    if (filters.userId) {
+      query = query.eq("user_id", filters.userId);
+    }
     query = applyDocumentQueryFilters(query, filters);
-    return query.order("created_at", { ascending: false });
+    const result = await query.order("created_at", { ascending: false });
+    if (!result.error) {
+      console.debug("[Supabase] documents.list result", {
+        rowCount: result.data?.length ?? 0,
+        filters,
+      });
+    }
+    return result;
   }, "documents.list");
 }
 
@@ -389,6 +652,8 @@ export async function searchDocuments({ userId, role, query, excludeStatus = "tr
   const pattern = `%${term.replace(/[%_,]/g, "")}%`;
 
   return safeQuery(async () => {
+    const filters = { userId, role, query: term, excludeStatus };
+    console.debug("[Supabase] documents.searchDocuments", filters);
     let q = supabase
       .from("documents")
       .select("*")
@@ -396,7 +661,14 @@ export async function searchDocuments({ userId, role, query, excludeStatus = "tr
 
     q = applyDocumentQueryFilters(q, { userId, role, excludeStatus });
 
-    return q.order("created_at", { ascending: false });
+    const result = await q.order("created_at", { ascending: false });
+    if (!result.error) {
+      console.debug("[Supabase] documents.searchDocuments result", {
+        rowCount: result.data?.length ?? 0,
+        filters,
+      });
+    }
+    return result;
   }, "documents.searchDocuments");
 }
 
@@ -408,18 +680,19 @@ export async function getDocumentById(id) {
 }
 
 export async function createDocument(document) {
-  return safeQuery(
-    async () => supabase.from("documents").insert(document).select().single(),
-    "documents.create"
-  );
+  return safeQuery(async () => {
+    const seed = await verifyDatabaseSchema();
+    if (seed.error) return { data: null, error: seed.error };
+    return supabase.from("documents").insert(document).select().single();
+  }, "documents.create");
 }
 
 export async function updateDocument(id, updates) {
-  return safeQuery(
-    async () =>
-      supabase.from("documents").update(updates).eq("id", id).select().single(),
-    "documents.update"
-  );
+  return safeQuery(async () => {
+    const seed = await verifyDatabaseSchema();
+    if (seed.error) return { data: null, error: seed.error };
+    return supabase.from("documents").update(updates).eq("id", id).select().single();
+  }, "documents.update");
 }
 
 export async function deleteDocument(id) {
@@ -447,15 +720,26 @@ export async function saveDocument(docData) {
 }
 
 export async function saveDocumentDraft({ userId, role, title, content, documentId, assignmentTaskId, classId, languageId }) {
+  let resolvedAssignmentTaskId;
+  let resolvedLanguageId;
+  try {
+    resolvedAssignmentTaskId =
+      assignmentTaskId == null ? await resolveDefaultAssignmentTaskId() : assignmentTaskId;
+    resolvedLanguageId = languageId == null ? await resolveDefaultLanguageId() : languageId;
+  } catch (e) {
+    const err = toUserFriendlyDbError(e, "documents.saveDocumentDraft.defaults");
+    return { data: null, error: err };
+  }
+
   const payload = {
     user_id: userId,
     role,
     title: title || "Untitled Draft",
     content: content ?? "",
     status: "draft",
-    assignment_task_id: assignmentTaskId ?? null,
+    assignment_task_id: resolvedAssignmentTaskId,
     class_id: classId ?? null,
-    language_id: languageId ?? null,
+    language_id: resolvedLanguageId,
   };
 
   if (documentId) {
@@ -489,12 +773,23 @@ export async function uploadDocumentFromFile(userId, role, file) {
       content = `[storage:${path}]`;
     }
 
+    let assignmentTaskId;
+    let languageId;
+    try {
+      assignmentTaskId = await resolveDefaultAssignmentTaskId();
+      languageId = await resolveDefaultLanguageId();
+    } catch (e) {
+      return { data: null, error: toUserFriendlyDbError(e, "documents.uploadDocumentFromFile.defaults") };
+    }
+
     return createDocument({
       user_id: userId,
       role,
       title: file.name,
       content,
       status: "draft",
+      assignment_task_id: assignmentTaskId,
+      language_id: languageId,
     });
   } catch (error) {
     console.error("[Supabase] documents.uploadDocumentFromFile", error);
@@ -584,12 +879,35 @@ export async function submitEvaluation({
   strengths,
   weaknesses,
   feedbackSuggestions,
+  status = "scored",
 }) {
   try {
+    if (!essayId) {
+      return { data: null, error: new Error("No essay selected for grading.") };
+    }
+
+    const { data: essay, error: essayErr } = await getDocumentById(essayId);
+    if (essayErr) return { data: null, error: essayErr };
+    if (!essay) {
+      return { data: null, error: new Error("Essay not found. Refresh and try again.") };
+    }
+
+    const sessionUserId = evaluatorId ?? (await getAuthUserId());
+    if (!sessionUserId) {
+      return { data: null, error: new Error("You must be signed in to submit a grade.") };
+    }
+
+    const numericScore = Number(totalScore);
+    if (Number.isNaN(numericScore)) {
+      return { data: null, error: new Error("Please enter a valid numeric score.") };
+    }
+    const clampedScore = Math.max(0, Math.min(10, numericScore));
+
     const { data: evaluation, error: evalError } = await createEvaluation({
       essay_id: essayId,
-      evaluator_id: evaluatorId,
-      total_score: totalScore,
+      evaluator_id: sessionUserId,
+      total_score: clampedScore,
+      status: status || "scored",
       evaluated_at: new Date().toISOString(),
       suggestions: suggestions ?? null,
       rubric_matrix: rubricMatrix ?? null,
@@ -633,6 +951,7 @@ export async function getStudentGradedEssays(userId) {
           .from("evaluations")
           .select("*, feedback(*)")
           .eq("essay_id", doc.id)
+          .eq("status", "released")
           .order("evaluated_at", { ascending: false })
           .limit(1);
 
@@ -735,6 +1054,19 @@ export async function createRubric(rubric) {
     async () => supabase.from("rubrics").insert(rubric).select().single(),
     "rubrics.create"
   );
+}
+
+/** Validates assignment_task_id exists before rubric insert (avoids fk_rubric_assignment). */
+export async function createRubricWithValidation(rubric) {
+  const taskId = rubric?.assignment_task_id;
+  const check = await assertAssignmentTaskExists(taskId);
+  if (!check.exists) {
+    return { data: null, error: check.error };
+  }
+  return createRubric({
+    ...rubric,
+    assignment_task_id: Number(taskId),
+  });
 }
 
 export async function updateRubric(id, updates) {
@@ -973,12 +1305,17 @@ export async function releaseScore(evaluationId) {
       return { data: null, error: new Error("Evaluation has no linked essay.") };
     }
 
+    const { data: releasedEval, error: releaseError } = await updateEvaluation(evaluationId, {
+      status: "released",
+    });
+    if (releaseError) return { data: null, error: releaseError };
+
     const { data: doc, error: docError } = await updateDocument(evaluation.essay_id, {
       status: "graded",
     });
     if (docError) return { data: null, error: docError };
 
-    return { data: { evaluation, document: doc }, error: null };
+    return { data: { evaluation: releasedEval ?? evaluation, document: doc }, error: null };
   } catch (error) {
     console.error("[Supabase] releaseScore", error);
     return { data: null, error };

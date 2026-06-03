@@ -94,9 +94,20 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 - Check that RESEND_API_KEY is set in Supabase Edge Functions settings
 - Verify your domain is verified in Resend
 
-### Redirect not working
-- Check that the redirectTo URL in Sign_in.jsx matches your app's URL
+### Redirect not working / "localhost refused to connect" after Google sign-in
+
+This almost always means a **port mismatch** or the dev server is not running.
+
+1. Start the app: `npm run dev` — note the port Vite prints (default **5176** in `vite.config.js`).
+2. Open the app at that exact URL, e.g. `http://localhost:5176/sign_in` (not an old bookmark on another port).
+3. In **Supabase Dashboard → Authentication → URL Configuration** set:
+   - **Site URL:** `http://localhost:5176`
+   - **Redirect URLs:** add `http://localhost:5176/**` and `http://localhost:5176/role_selection`
+4. Site URL and Vite `server.port` must use the **same port**.
+
+### Redirect not working (other)
 - Verify the route `/role_selection` exists in your React Router
+- `signInWithGoogle()` uses `window.location.origin` — sign in from the same port you configured in Supabase
 
 ## Customization
 

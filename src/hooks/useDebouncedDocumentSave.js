@@ -1,6 +1,13 @@
 import { useEffect, useRef, useCallback } from "react";
 import { getSession, saveDocument } from "../services/api.js";
 
+const LOCAL_DRAFT_PREFIX = "aeskolar_local_draft:";
+
+function getLocalDraftKey({ role, assignmentTaskId }) {
+  const taskPart = assignmentTaskId == null ? "general" : String(assignmentTaskId);
+  return `${LOCAL_DRAFT_PREFIX}${role}:${taskPart}`;
+}
+
 /**
  * Auto-saves document draft after debounceMs of inactivity.
  * @param {{ title: string, content: string, documentId?: string|null, role: string, assignmentTaskId?: number|null }} doc
@@ -25,11 +32,33 @@ export function useDebouncedDocumentSave(doc, options = {}) {
     if (savingRef.current) return documentIdRef.current;
 
     const { session } = await getSession();
-    if (!session) return documentIdRef.current;
-
     const t = title?.trim() ?? "";
     const c = content ?? "";
     if (!t && !c) return documentIdRef.current;
+
+    // If unauthenticated, persist locally (so debounce still works for all users).
+    if (!session) {
+      try {
+        const key = getLocalDraftKey({ role, assignmentTaskId });
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            title: t,
+            content: c,
+            role,
+            assignmentTaskId: assignmentTaskId ?? null,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+        console.debug("[Draft] saved locally", { key });
+        lastSavedRef.current = { title: t, content: c };
+        onStatusRef.current?.("saved");
+      } catch (e) {
+        console.warn("[Draft] local save failed", e);
+        onStatusRef.current?.("error", "Could not save locally. Please try again.");
+      }
+      return documentIdRef.current;
+    }
 
     savingRef.current = true;
     onStatusRef.current?.("saving");
@@ -53,6 +82,17 @@ export function useDebouncedDocumentSave(doc, options = {}) {
     if (data?.id) documentIdRef.current = data.id;
     lastSavedRef.current = { title: t, content: c };
     onStatusRef.current?.("saved");
+
+    // Clear any local unauth draft after successful sync.
+    try {
+      const key = getLocalDraftKey({ role, assignmentTaskId });
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.debug("[Draft] cleared local after sync", { key });
+      }
+    } catch {
+      // ignore
+    }
     return documentIdRef.current;
   }, [title, content, role, assignmentTaskId]);
 

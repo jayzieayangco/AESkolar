@@ -8,7 +8,10 @@ import {
   moveDocumentToTrash,
   downloadDocumentContent,
 } from "../../services/api.js";
-import SidebarProfileIcon from "../../components/SidebarProfileIcon.jsx";
+import AppPageHeader from "../../components/AppPageHeader.jsx";
+import SidebarNav from "../../components/SidebarNav.jsx";
+import SidebarProfileRow from "../../components/SidebarProfileRow.jsx";
+import { documentPreview } from "../../utils/essayValidation.js";
 
 export default function Teacher_Documents() {
   const navigate = useNavigate();
@@ -87,43 +90,7 @@ export default function Teacher_Documents() {
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
       
-      {/* BRANDING HEADER AREA + SEARCH CONTAINER */}
-      <div className="flex items-center justify-between pl-10 pb-4 pr-2">
-        <div className="flex items-center gap-1.5">
-          <img 
-            src="/logo.png" 
-            alt="AESkolar Logo" 
-            className="fixed h-17 w-auto object-contain"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
-          />
-          <div className="flex flex-col justify-center ml-12">
-            <span className="text-[32px] font-bold text-[#1e293b] tracking-tight leading-none">
-              AESkolar
-            </span>
-            <span className="text-xs text-[#475569] mt-0.5 ml-0.5">
-              write better, learn smarter.
-            </span>
-          </div>
-        </div>
-
-        {/* Search Engine Pill Bar */}
-        <div className="relative w-80">
-          <input 
-            type="text" 
-            placeholder="Search here"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white text-slate-700 pl-5 pr-11 py-2.5 rounded-full border-0 outline-none focus:outline-none focus:ring-0 focus:border-transparent text-base font-normal placeholder-slate-400 shadow-sm"
-          />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 cursor-pointer">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
-      </div>
+      <AppPageHeader searchValue={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* MAIN CONTAINER LAYOUT */}
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
@@ -131,39 +98,17 @@ export default function Teacher_Documents() {
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <nav className="flex flex-col w-full gap-2.5 mt-20">
-              {sidebarItems.map((item) => {
-                const isActive = activeTab === item;
-                return (
-                  <button
-                    key={item}
-                    onClick={() => handleNavigation(item)}
-                    className={`w-full text-left py-4 px-10 text-2xl font-medium tracking-wide rounded-l-full transition-all duration-150 cursor-pointer ${
-                      isActive
-                        ? "bg-[#c5ecff] text-[#1e293b] font-bold pl-12 shadow-[-4px_4px_6px_rgba(0,0,0,0.05)]"
-                        : "text-[#1e293b]/80 hover:text-[#1e293b] hover:bg-white/10 hover:pl-11"
-                    }`}
-                  >
-                    {item}
-                  </button>
-                );
-              })}
-            </nav>
+            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
           </div>
 
-          {/* User Account Access Profile Control */}
-          <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
-            <SidebarProfileIcon />
-          </div>
+          <SidebarProfileRow />
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-8 overflow-y-auto box-border pr-2 pb-6">
           
           <div>
-            <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-tight">
-              Documents
-            </h1>
+            <h1 className="text-page-title">Documents</h1>
           </div>
 
           {errorMessage && <p className="text-red-600 text-sm -mt-4">{errorMessage}</p>}
@@ -209,11 +154,11 @@ export default function Teacher_Documents() {
                 Recent
               </h2>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+              <div className="grid-documents">
                 {documents.map((file) => (
                   <div 
                     key={file.id}
-                    className="bg-white border border-[#cbd5e1]/60 rounded-xl shadow-sm h-56 w-full flex flex-col relative overflow-visible"
+                    className="card-document"
                   >
                     <div className="flex items-center justify-between border-b border-[#cbd5e1]/50 px-4 py-3 bg-slate-50/50 rounded-t-xl">
                       <span className="text-lg font-medium text-[#334155] truncate max-w-[130px]">
@@ -263,7 +208,9 @@ export default function Teacher_Documents() {
                       </div>
                     </div>
 
-                    <div className="flex-1 bg-white rounded-b-xl"></div>
+                    <div className="flex-1 bg-white rounded-b-xl p-4 text-sm text-slate-600 leading-snug overflow-hidden">
+                      {documentPreview(file.content, 100)}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSession, saveDocumentDraft } from "../../services/api.js";
+import { getSession } from "../../services/api.js";
+import { useDebouncedDocumentSave } from "../../hooks/useDebouncedDocumentSave.js";
+import DocumentEditor from "../../components/DocumentEditor.jsx";
+import { gradeEssayWithAI } from "@ai-engine/gradingEngine.js";
 
 export default function Essay() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [essayText, setEssayText] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
 
   function navigateTo(route) {
     navigate(route);
@@ -26,24 +30,43 @@ export default function Essay() {
 
   // Intercept save action and redirect unauthenticated users to the sign-in screen
   const handleSaveDraft = async () => {
+    if (!title.trim() && !essayText.trim()) {
+      alert("Please add a title or content before saving your draft.");
+      return;
+    }
+
+    setSaveStatus("Saving...");
     const { session } = await getSession();
+
+    const id = await saveNow(); // saves locally if signed out, Supabase if signed in
+
     if (!session) {
-      alert("To save your essay progress and track your drafts, you must first be logged in.");
+      setSaveStatus("Saved locally");
+      setTimeout(() => setSaveStatus(""), 1800);
+      alert("Saved locally. Sign in to sync your draft.");
       navigate("/sign_in");
       return;
     }
-    const { error } = await saveDocumentDraft({
-      userId: session.user.id,
-      role: "student",
-      title,
-      content: essayText,
-    });
-    if (error) {
-      alert(error.message || "Save failed.");
-      return;
-    }
-    navigate("/student_documents");
+
+    setSaveStatus("Success!");
+    setTimeout(() => navigate("/student_documents"), 600);
   };
+
+  const { saveNow } = useDebouncedDocumentSave(
+    { title, content: essayText, documentId: null, role: "student", assignmentTaskId: null },
+    {
+      enabled: true,
+      debounceMs: 2000,
+      onStatus: (status, msg) => {
+        if (status === "saving") setSaveStatus("Saving...");
+        if (status === "saved") {
+          setSaveStatus("Success!");
+          setTimeout(() => setSaveStatus(""), 2000);
+        }
+        if (status === "error") setSaveStatus(msg || "Failed to save draft.");
+      },
+    }
+  );
 
   return (
     <div className="flex h-screen w-screen bg-[#c5ecff] p-6 gap-6 font-sans overflow-hidden box-border">
@@ -78,24 +101,28 @@ export default function Essay() {
               write better, learn smarter.
             </span>
           </div>
+          {saveStatus && (
+            <span
+              className={`text-sm font-medium ${
+                saveStatus.toLowerCase().includes("fail") ? "text-red-600" : "text-emerald-600"
+              }`}
+            >
+              {saveStatus}
+            </span>
+          )}
         </div>
 
-        {/* Essay Title Input */}
-        <input
-          type="text"
-          placeholder="Input Title Here"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-[#dcf2fe] border border-[#a6d5fa] rounded-lg py-3 px-4 text-center text-lg font-medium text-[#334155] placeholder-[#64748b] focus:outline-none focus:ring-2 focus:ring-[#7dd3fc]"
-        />
-
-        {/* Big Essay Text Area Input */}
-        <textarea
-          placeholder="Start typing your essay here..."
-          value={essayText}
-          onChange={(e) => setEssayText(e.target.value)}
-          className="w-full flex-1 bg-white border border-[#a6d5fa] rounded-lg p-6 text-base text-[#334155] placeholder-[#94a3b8] resize-none focus:outline-none focus:ring-2 focus:ring-[#7dd3fc] overflow-y-auto leading-relaxed shadow-sm"
-        />
+        <div className="flex-1 min-h-0">
+          <DocumentEditor
+            title={title}
+            onTitleChange={setTitle}
+            content={essayText}
+            onContentChange={setEssayText}
+            rubric={null}
+            gradeEssayWithAI={gradeEssayWithAI}
+            placeholder="Start typing your essay here..."
+          />
+        </div>
 
         {/* Action Buttons Footer */}
         <div className="flex items-center justify-between pb-2">
@@ -110,29 +137,6 @@ export default function Essay() {
             Word Count: {essayText.trim() === "" ? 0 : essayText.trim().split(/\s+/).length}
           </div>
         </div>
-      </div>
-
-      {/* RIGHT SIDE: Evaluation Panel */}
-      <div className="w-[340px] md:w-[380px] h-full flex flex-col gap-4">
-        
-        {/* Top Segment: Overall Score Display */}
-        <div className="flex-1 bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
-          <h2 className="text-xl font-semibold text-[#1e293b] mb-4">Overall Score</h2>
-          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">
-            <span className="text-sm text-[#64748b] text-center px-4">
-              Submit your essay to compute the scoring rubrics matrix.
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Segment: Feedback & Suggestions */}
-        <div className="h-[250px] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
-          <h2 className="text-xl font-semibold text-[#1e293b] mb-3">Review Suggestion</h2>
-          <div className="flex-1 overflow-y-auto text-sm text-[#475569] leading-relaxed pr-1">
-            <p className="text-[#94a3b8] italic">No suggestions available yet.</p>
-          </div>
-        </div>
-
       </div>
 
     </div>
