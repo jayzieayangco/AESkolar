@@ -12,7 +12,8 @@ import AuthPageLayout from "../../components/AuthPageLayout.jsx";
 
 export default function Sign_up() {
   const navigate = useNavigate();
-  const { loading, isBlocked, runAuthAction, applyRateLimitCooldown } = useAuthSubmitGuard();
+  const { loading, isBlocked, runAuthAction, applyRateLimitCooldown } =
+    useAuthSubmitGuard();
   const [errorMessage, setErrorMessage] = useState("");
   const [emailError, setEmailError] = useState("");
   const [formData, setFormData] = useState({
@@ -28,7 +29,9 @@ export default function Sign_up() {
 
   const handleGoogleSignIn = async () => {
     setErrorMessage("");
-    const { error } = await runAuthAction(() => signInWithGoogle("/role_selection"));
+    const { error } = await runAuthAction(() =>
+      signInWithGoogle("/role_selection"),
+    );
     if (error) {
       applyRateLimitCooldown(error);
       setErrorMessage(getAuthErrorMessage(error));
@@ -72,7 +75,7 @@ export default function Sign_up() {
       signUpWithEmail(formData.email.trim(), formData.password, {
         full_name: formData.username,
         role: "student",
-      })
+      }),
     );
     if (error) {
       applyRateLimitCooldown(error);
@@ -80,7 +83,10 @@ export default function Sign_up() {
       return;
     }
     if (data?.session) {
-      await syncUserToDatabase(data.session, { fullName: formData.username, role: "student" });
+      await syncUserToDatabase(data.session, {
+        fullName: formData.username,
+        role: "student",
+      });
       navigate("/role_selection");
     } else {
       alert("Check your email to confirm your account, then sign in.");
@@ -103,7 +109,9 @@ export default function Sign_up() {
 
         <form className="space-y-5" onSubmit={handleEmailSignUp}>
           <div>
-            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">Username</label>
+            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">
+              Username
+            </label>
             <input
               type="text"
               name="username"
@@ -114,7 +122,9 @@ export default function Sign_up() {
             />
           </div>
           <div>
-            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">Email</label>
+            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">
+              Email
+            </label>
             <input
               type="email"
               name="email"
@@ -125,7 +135,9 @@ export default function Sign_up() {
             />
           </div>
           <div>
-            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">Password</label>
+            <label className="block text-lg font-medium text-slate-700 mb-1 pl-2">
+              Password
+            </label>
             <input
               type="password"
               name="password"
@@ -140,7 +152,11 @@ export default function Sign_up() {
             I agree to all Terms, Privacy Policy and fees
           </p>
 
-          <button type="submit" disabled={isBlocked} className="btn-auth-primary">
+          <button
+            type="submit"
+            disabled={isBlocked}
+            className="btn-auth-primary"
+          >
             {loading ? "Creating account..." : "Sign up"}
           </button>
 
@@ -150,11 +166,15 @@ export default function Sign_up() {
             <div className="flex-grow border-t-2 border-slate-700" />
           </div>
 
-          <button type="button" onClick={handleGoogleSignIn} disabled={isBlocked} className="btn-auth-google">
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isBlocked}
+            className="btn-auth-google"
+          >
             <img src="/google.png" alt="" className="h-6 w-6 object-contain" />
             {loading ? "Signing in..." : "Continue with Google"}
           </button>
-
         </form>
       </div>
     </AuthPageLayout>

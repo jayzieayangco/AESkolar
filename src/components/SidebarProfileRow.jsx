@@ -19,7 +19,11 @@ export default function SidebarProfileRow() {
       </div>
 
       <div>
-        <button type="button" onClick={handleLogout} className="btn-logout-header">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="btn-logout-header"
+        >
           Logout
         </button>
       </div>
