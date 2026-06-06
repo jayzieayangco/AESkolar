@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getSession,
@@ -23,6 +23,8 @@ export default function Teacher_Dashboard() {
   const [stats, setStats] = useState({ graded: 0, pending: 0, flagged: 0 });
   const [submissions, setSubmissions] = useState([]);
   const [teacherTasks, setTeacherTasks] = useState([]);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const dropdownRef = useRef(null);
 
   const sidebarItems = [
     "Dashboard",
@@ -49,12 +51,18 @@ export default function Teacher_Dashboard() {
     }
     const { data: profile } = await getUserProfile(session.user.id);
     setUserName(profile?.full_name || "Teacher");
-    const { data: pendingDocs } = await fetchTeacherSubmissions(session.user.id, {
-      status: "submitted",
-    });
-    const { data: gradedDocs } = await fetchTeacherSubmissions(session.user.id, {
-      status: "graded",
-    });
+    const { data: pendingDocs } = await fetchTeacherSubmissions(
+      session.user.id,
+      {
+        status: "submitted",
+      },
+    );
+    const { data: gradedDocs } = await fetchTeacherSubmissions(
+      session.user.id,
+      {
+        status: "graded",
+      },
+    );
     setStats({
       graded: gradedDocs?.length ?? 0,
       pending: pendingDocs?.length ?? 0,
@@ -70,7 +78,7 @@ export default function Teacher_Dashboard() {
           score: "—",
           status: formatDocumentStatus(doc.status),
         };
-      })
+      }),
     );
     setSubmissions(rows);
     const { data: tasks } = await fetchTeacherAssignmentTasks(session.user.id);
@@ -80,6 +88,16 @@ export default function Teacher_Dashboard() {
   useEffect(() => {
     loadData();
   }, [navigate]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleUploadEssays = async () => {
     const title = window.prompt("New assignment title:");
@@ -121,8 +139,12 @@ export default function Teacher_Dashboard() {
   const handleEditTask = async (task) => {
     const title = window.prompt("Task title:", task.title);
     if (!title) return;
-    const instruction = window.prompt("Instructions:", task.instruction || "") ?? "";
-    const { error } = await updateAssignmentTask(task.id, { title, instruction });
+    const instruction =
+      window.prompt("Instructions:", task.instruction || "") ?? "";
+    const { error } = await updateAssignmentTask(task.id, {
+      title,
+      instruction,
+    });
     if (error) alert(error.message);
     else loadData();
   };
@@ -138,7 +160,9 @@ export default function Teacher_Dashboard() {
     if (!submissions.length) return;
     const csv = [
       ["Student", "Essay", "Status", "Score"].join(","),
-      ...submissions.map((s) => [s.studentName, s.title, s.status, s.score].join(",")),
+      ...submissions.map((s) =>
+        [s.studentName, s.title, s.status, s.score].join(","),
+      ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -158,7 +182,11 @@ export default function Teacher_Dashboard() {
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
+            <SidebarNav
+              items={sidebarItems}
+              activeTab={activeTab}
+              onNavigate={handleNavigation}
+            />
           </div>
 
           <SidebarProfileRow />
@@ -174,9 +202,29 @@ export default function Teacher_Dashboard() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-base font-semibold text-[#1e293b]">Your assignments</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#1e293b]">
+                Your assignments
+              </h2>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleUploadEssays}
+                  className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Upload New Essays
+                </button>
+                <button
+                  onClick={handleUploadRubric}
+                  className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Upload Rubric
+                </button>
+              </div>
+            </div>
             {teacherTasks.length === 0 ? (
-              <p className="text-sm text-slate-500 italic">No tasks yet. Create one below.</p>
+              <p className="text-sm text-slate-500 italic">
+                No tasks yet. Create one above.
+              </p>
             ) : (
               <div className="flex flex-wrap gap-3">
                 {teacherTasks.map((task) => (
@@ -184,45 +232,57 @@ export default function Teacher_Dashboard() {
                     key={task.id}
                     className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm min-w-[200px] max-w-xs flex-1"
                   >
-                    <p className="font-semibold text-slate-800">{task.title}</p>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-slate-800">
+                        {task.title}
+                      </p>
+                      <div
+                        className="relative"
+                        ref={activeMenuId === task.id ? dropdownRef : null}
+                      >
+                        <button
+                          onClick={() =>
+                            setActiveMenuId(
+                              activeMenuId === task.id ? null : task.id,
+                            )
+                          }
+                          className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 transition-all cursor-pointer"
+                        >
+                          <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block"></span>
+                          <span className="w-2.5 h-2.5 bg-[#cbd5e1] rounded-full inline-block"></span>
+                        </button>
+
+                        {activeMenuId === task.id && (
+                          <div className="absolute right-0 top-full mt-1 z-30 w-32 bg-[#7ba4cc] border border-[#6993bc] rounded-lg shadow-lg overflow-hidden flex flex-col transform origin-top-right transition-all duration-100">
+                            <button
+                              onClick={() => {
+                                handleEditTask(task);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleDeleteTask(task);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2">
                       {task.instruction || "No instructions"}
                     </p>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        type="button"
-                        onClick={() => handleEditTask(task)}
-                        className="text-xs text-slate-700 underline cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTask(task)}
-                        className="text-xs text-red-600 underline cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleUploadEssays}
-              className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Upload New Essays
-            </button>
-            <button
-              onClick={handleUploadRubric}
-              className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Upload Rubric
-            </button>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -234,19 +294,25 @@ export default function Teacher_Dashboard() {
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Total Graded
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.graded}</span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">
+                  {stats.graded}
+                </span>
               </div>
               <div className="bg-white border border-[#cbd5e1] rounded-xl p-5 shadow-sm h-28 flex flex-col justify-start">
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Pending
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.pending}</span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">
+                  {stats.pending}
+                </span>
               </div>
               <div className="bg-white border border-[#cbd5e1] rounded-xl p-5 shadow-sm h-28 flex flex-col justify-start">
                 <span className="text-xs font-semibold text-[#64748b] uppercase tracking-wider text-center w-full">
                   Flagged for Review
                 </span>
-                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">{stats.flagged}</span>
+                <span className="text-3xl font-bold text-center text-[#1e293b] mt-2">
+                  {stats.flagged}
+                </span>
               </div>
             </div>
           </div>
@@ -289,12 +355,18 @@ export default function Teacher_Dashboard() {
                     submissions.map((row) => (
                       <tr
                         key={row.id}
-                        onClick={() => navigate("/teacher_grade_essay", { state: { essayId: row.id } })}
+                        onClick={() =>
+                          navigate("/teacher_grade_essay", {
+                            state: { essayId: row.id },
+                          })
+                        }
                         className="flex w-full border-b border-slate-50 text-slate-700 text-sm items-center py-3 px-6 cursor-pointer hover:bg-slate-50"
                       >
                         <td className="flex-1">{row.studentName}</td>
                         <td className="w-32 text-center">{row.score}</td>
-                        <td className="w-48 text-center capitalize">{row.status}</td>
+                        <td className="w-48 text-center capitalize">
+                          {row.status}
+                        </td>
                       </tr>
                     ))
                   )}
