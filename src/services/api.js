@@ -357,9 +357,7 @@ export async function fetchStudentTodoTasks(userId) {
 /** Teacher-owned assignment tasks. */
 export async function fetchTeacherAssignmentTasks(teacherId) {
   if (!teacherId) return { data: [], error: null };
-  const withOwner = await listAssignmentTasks({ createdBy: teacherId });
-  if (withOwner.data?.length) return withOwner;
-  return listAssignmentTasks();
+  return listAssignmentTasks({ createdBy: teacherId });
 }
 
 /** Submissions for essays tied to a teacher's assignments. */
