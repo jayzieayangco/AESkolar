@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import './App.css'
+import { useState } from "react";
+import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Landing_page from "./pages/landing_page/Landing_page";
 import Essay from "./pages/essay/Essay";
@@ -19,7 +19,7 @@ import Teacher_essay_editor from "./pages/teacher_essay_editor/Teacher_essay_edi
 import Student_essay_editor from "./pages/student_essay_editor/Student_essay_editor";
 import Student_Settings from "./pages/student_settings/Students_settings";
 function App() {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(0);
 
   return (
     <BrowserRouter>
@@ -38,15 +38,21 @@ function App() {
         <Route path="/student_documents" element={<Student_Documents />} />
         <Route path="/student_trash" element={<Student_Trash />} />
         <Route path="/teacher_settings" element={<Teacher_Settings />} />
-        <Route path="/teacher_essay_editor" element={<Teacher_essay_editor />} />
-        <Route path="/student_essay_editor" element={<Student_essay_editor />} />
+        <Route
+          path="/teacher_essay_editor"
+          element={<Teacher_essay_editor />}
+        />
+        <Route
+          path="/student_essay_editor"
+          element={<Student_essay_editor />}
+        />
         <Route path="/student_settings" element={<Student_Settings />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;
 
 // import TestFetch from "./test"; // Make sure path is correct
 
