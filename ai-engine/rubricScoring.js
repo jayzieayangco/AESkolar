@@ -23,8 +23,14 @@ function slotKey(row) {
   const id = String(row?.id ?? row?.name ?? "").toLowerCase();
   if (id.includes("content") || id.includes("ideas")) return "content";
   if (id.includes("organ") || id.includes("structure")) return "organization";
-  if (id.includes("language") || id.includes("style") || id.includes("voice")) return "language";
-  if (id.includes("mech") || id.includes("grammar") || id.includes("convention")) return "mechanics";
+  if (id.includes("language") || id.includes("style") || id.includes("voice"))
+    return "language";
+  if (
+    id.includes("mech") ||
+    id.includes("grammar") ||
+    id.includes("convention")
+  )
+    return "mechanics";
   return null;
 }
 
@@ -40,6 +46,7 @@ export function reconcileRubricScores(incoming = []) {
 
   const rubricScores = RUBRIC_SLOTS.map((slot) => {
     const src = mapped[slot.id];
+    // Clamp score to maxScore and round to half point for display
     const score = roundHalf(clamp(Number(src?.score ?? 0), 0, slot.maxScore));
     return {
       id: slot.id,
@@ -49,7 +56,11 @@ export function reconcileRubricScores(incoming = []) {
     };
   });
 
-  let totalScore = roundHalf(rubricScores.reduce((sum, r) => sum + r.score, 0));
+  // Calculate total score by summing individual rubric scores
+  let totalScore = rubricScores.reduce((sum, r) => sum + r.score, 0);
+
+  // Round total score to nearest half point for display
+  totalScore = roundHalf(totalScore);
 
   if (totalScore > MAX_TOTAL) {
     const factor = MAX_TOTAL / totalScore;

@@ -14,14 +14,20 @@ export default function Student_essay_editor() {
 
   const [title, setTitle] = useState(initialTitle);
   const [essayText, setEssayText] = useState(initialContent);
-  const [documentId, setDocumentId] = useState(location.state?.documentId ?? null);
+  const [documentId, setDocumentId] = useState(
+    location.state?.documentId ?? null,
+  );
   const [assignmentTaskId] = useState(location.state?.taskId ?? null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
-  const savedSnapshot = useRef({ title: initialTitle, content: initialContent });
+  const savedSnapshot = useRef({
+    title: initialTitle,
+    content: initialContent,
+  });
 
   const isDirty =
-    title !== savedSnapshot.current.title || essayText !== savedSnapshot.current.content;
+    title !== savedSnapshot.current.title ||
+    essayText !== savedSnapshot.current.content;
 
   const { confirmIfDirty } = useUnsavedChanges(isDirty);
 
@@ -36,15 +42,23 @@ export default function Student_essay_editor() {
   };
 
   const { saveNow } = useDebouncedDocumentSave(
-    { title, content: essayText, documentId, role: "student", assignmentTaskId },
-    { enabled: true, debounceMs: 2000, onStatus: handleStatus }
+    {
+      title,
+      content: essayText,
+      documentId,
+      role: "student",
+      assignmentTaskId,
+    },
+    { enabled: true, debounceMs: 2000, onStatus: handleStatus },
   );
 
   useEffect(() => {
     getSession().then(({ session }) => {
       if (!session) {
         // Allow live scoring even when signed out; saving will prompt login.
-        console.debug("[Auth] No session in student editor (live scoring still enabled).");
+        console.debug(
+          "[Auth] No session in student editor (live scoring still enabled).",
+        );
       }
     });
   }, []);
@@ -113,7 +127,9 @@ export default function Student_essay_editor() {
           {saveStatus && (
             <span
               className={`text-sm font-medium ${
-                saveStatus.toLowerCase().includes("fail") ? "text-red-600" : "text-emerald-600"
+                saveStatus.toLowerCase().includes("fail")
+                  ? "text-red-600"
+                  : "text-emerald-600"
               }`}
             >
               {saveStatus}
@@ -143,11 +159,11 @@ export default function Student_essay_editor() {
           </button>
 
           <div className="text-xs font-medium text-[#475569]">
-            Word Count: {essayText.trim() === "" ? 0 : essayText.trim().split(/\s+/).length}
+            Word Count:{" "}
+            {essayText.trim() === "" ? 0 : essayText.trim().split(/\s+/).length}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

@@ -23,69 +23,48 @@ import {
 } from "./rubricScoring.js";
 
 const AI_ENGINE_BASE =
-
   typeof import.meta !== "undefined" && import.meta.env?.VITE_AI_ENGINE_URL
-
     ? import.meta.env.VITE_AI_ENGINE_URL.replace(/\/$/, "")
-
     : "";
 
-
-
 function clamp(n, min, max) {
-
   return Math.max(min, Math.min(max, n));
-
 }
 
-
-
 function wordCount(text) {
-
   if (!text) return 0;
 
   return String(text)
-
     .trim()
 
     .split(/\s+/)
 
     .filter(Boolean).length;
-
 }
-
-
 
 function sentenceCount(text) {
-
   if (!text) return 0;
 
-  const parts = String(text).split(/[.!?]+/).map((s) => s.trim()).filter(Boolean);
+  const parts = String(text)
+    .split(/[.!?]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return parts.length;
-
 }
 
-
-
 function paragraphCount(text) {
-
   if (!text) return 0;
 
   return String(text)
-
     .split(/\n\s*\n/g)
 
     .map((p) => p.trim())
 
     .filter(Boolean).length;
-
 }
 
-
-
 function estimateReadability(text) {
-
   const wc = wordCount(text);
 
   const sc = Math.max(1, sentenceCount(text));
@@ -95,24 +74,32 @@ function estimateReadability(text) {
   const score = 1 - Math.abs(avgWordsPerSentence - 17) / 17;
 
   return clamp(score, 0, 1);
-
 }
-
-
 
 /** Lightweight client-side language hint (server re-detects authoritatively). */
 
 export function detectLanguage(text) {
-
   const markers = [
+    "ang",
+    "ng",
+    "mga",
+    "sa",
+    "ay",
+    "na",
+    "hindi",
+    "mabuti",
+    "mahalaga",
 
-    "ang", "ng", "mga", "sa", "ay", "na", "hindi", "mabuti", "mahalaga",
-
-    "edukasyon", "mag-aaral", "guro", "paaralan",
-
+    "edukasyon",
+    "mag-aaral",
+    "guro",
+    "paaralan",
   ];
 
-  const tokens = String(text).toLowerCase().match(/[a-zà-ÿñ]+/g) ?? [];
+  const tokens =
+    String(text)
+      .toLowerCase()
+      .match(/[a-zà-ÿñ]+/g) ?? [];
 
   if (!tokens.length) return "english";
 
@@ -121,19 +108,12 @@ export function detectLanguage(text) {
   if (/ñ/i.test(text) || hits / tokens.length >= 0.08) return "filipino";
 
   return "english";
-
 }
 
-
-
 function normalizeRubric(rubricData) {
-
   if (!rubricData) {
-
     return {
-
       criteria: [
-
         { id: "content", name: "Content", maxScore: 4 },
 
         { id: "organization", name: "Organization", maxScore: 3 },
@@ -141,11 +121,8 @@ function normalizeRubric(rubricData) {
         { id: "language", name: "Language", maxScore: 2 },
 
         { id: "mechanics", name: "Mechanics", maxScore: 1 },
-
       ],
-
     };
-
   }
 
   if (Array.isArray(rubricData)) return { criteria: rubricData };
@@ -155,13 +132,9 @@ function normalizeRubric(rubricData) {
   if (Array.isArray(rubricData.rubric)) return { criteria: rubricData.rubric };
 
   return { criteria: [] };
-
 }
 
-
-
 function scoreCriterion(criterion, essayContent) {
-
   const maxScore = Number(criterion?.maxScore ?? criterion?.max ?? 4) || 4;
 
   const name = String(criterion?.name ?? criterion?.title ?? "Criterion");
@@ -192,34 +165,40 @@ function scoreCriterion(criterion, essayContent) {
 
   const key = String(criterion?.id ?? name).toLowerCase();
 
-
-
   let base = 0.5;
 
-  if (key.includes("content") || key.includes("ideas") || key.includes("argument")) {
-
+  if (
+    key.includes("content") ||
+    key.includes("ideas") ||
+    key.includes("argument")
+  ) {
     base =
-
-      (wc >= 200 ? 0.9 : wc >= 120 ? 0.75 : wc >= 80 ? 0.6 : wc >= 40 ? 0.45 : 0.2) *
-
+      (wc >= 200
+        ? 0.9
+        : wc >= 120
+          ? 0.75
+          : wc >= 80
+            ? 0.6
+            : wc >= 40
+              ? 0.45
+              : 0.2) *
       (readability * 0.6 + 0.4);
-
   } else if (key.includes("organization") || key.includes("structure")) {
-
     base =
-
       (hasStructure ? 0.85 : pc === 2 ? 0.6 : pc === 1 ? 0.35 : 0.45) *
-
       (hasIntro ? 1 : 0.85) *
-
       (hasConclusion ? 1 : 0.9);
-
-  } else if (key.includes("language") || key.includes("style") || key.includes("voice")) {
-
+  } else if (
+    key.includes("language") ||
+    key.includes("style") ||
+    key.includes("voice")
+  ) {
     base = readability * (veryShort ? 0.7 : 1);
-
-  } else if (key.includes("mechanics") || key.includes("grammar") || key.includes("conventions")) {
-
+  } else if (
+    key.includes("mechanics") ||
+    key.includes("grammar") ||
+    key.includes("conventions")
+  ) {
     base = 0.8;
 
     if (tooLongSentences) base *= 0.8;
@@ -228,13 +207,11 @@ function scoreCriterion(criterion, essayContent) {
 
     if (lotsOfRepeatedSpaces) base *= 0.9;
 
-    if (text.includes("..") || text.includes("??") || text.includes("!!")) base *= 0.9;
-
+    if (text.includes("..") || text.includes("??") || text.includes("!!"))
+      base *= 0.9;
   }
 
-
-
-  const score = roundHalf(clamp(base, 0, 1) * maxScore);
+  const score = clamp(base, 0, 1) * maxScore;
 
   const strengths = [];
 
@@ -242,67 +219,85 @@ function scoreCriterion(criterion, essayContent) {
 
   const suggestions = [];
 
-
-
   if (key.includes("organization") || key.includes("structure")) {
-
     if (hasStructure) strengths.push("Clear multi-paragraph structure.");
+    else
+      weaknesses.push("Essay would benefit from clearer paragraph structure.");
 
-    else weaknesses.push("Essay would benefit from clearer paragraph structure.");
+    if (!hasIntro)
+      suggestions.push(
+        "Add a short introduction that previews your main point.",
+      );
 
-    if (!hasIntro) suggestions.push("Add a short introduction that previews your main point.");
-
-    if (!hasConclusion) suggestions.push("Add a conclusion that summarizes your main point and takeaway.");
-
+    if (!hasConclusion)
+      suggestions.push(
+        "Add a conclusion that summarizes your main point and takeaway.",
+      );
   }
 
-  if (key.includes("content") || key.includes("ideas") || key.includes("argument")) {
-
+  if (
+    key.includes("content") ||
+    key.includes("ideas") ||
+    key.includes("argument")
+  ) {
     if (wc >= 120) strengths.push("Good level of detail for the topic.");
-
     else weaknesses.push("Add more supporting details and examples.");
 
-    if (veryShort) suggestions.push("Expand your ideas with at least 1–2 concrete examples.");
-
+    if (veryShort)
+      suggestions.push(
+        "Expand your ideas with at least 1–2 concrete examples.",
+      );
   }
 
-  if (key.includes("language") || key.includes("style") || key.includes("voice")) {
-
-    if (readability >= 0.75) strengths.push("Sentences are generally readable.");
-
-    else suggestions.push("Vary sentence length; aim for ~12–22 words per sentence.");
-
+  if (
+    key.includes("language") ||
+    key.includes("style") ||
+    key.includes("voice")
+  ) {
+    if (readability >= 0.75)
+      strengths.push("Sentences are generally readable.");
+    else
+      suggestions.push(
+        "Vary sentence length; aim for ~12–22 words per sentence.",
+      );
   }
 
-  if (key.includes("mechanics") || key.includes("grammar") || key.includes("conventions")) {
+  if (
+    key.includes("mechanics") ||
+    key.includes("grammar") ||
+    key.includes("conventions")
+  ) {
+    if (tooManyAllCaps)
+      suggestions.push("Avoid all-caps words; use emphasis sparingly.");
 
-    if (tooManyAllCaps) suggestions.push("Avoid all-caps words; use emphasis sparingly.");
+    if (lotsOfRepeatedSpaces)
+      suggestions.push("Fix spacing issues (remove extra spaces).");
 
-    if (lotsOfRepeatedSpaces) suggestions.push("Fix spacing issues (remove extra spaces).");
-
-    if (tooLongSentences) suggestions.push("Split very long sentences to improve clarity.");
-
+    if (tooLongSentences)
+      suggestions.push("Split very long sentences to improve clarity.");
   }
 
-
-
-  return { id: String(criterion?.id ?? name), name, score, maxScore, strengths, weaknesses, suggestions };
-
+  return {
+    id: String(criterion?.id ?? name),
+    name,
+    score,
+    maxScore,
+    strengths,
+    weaknesses,
+    suggestions,
+  };
 }
-
-
 
 /** Heuristic fallback grader (runs fully in-browser). */
 
 export function gradeEssay(essayContent, rubricData) {
-
   const rubric = normalizeRubric(rubricData);
 
   const criteria = rubric.criteria ?? [];
 
-  const rawRows = (criteria.length ? criteria : normalizeRubric(null).criteria).map((c) =>
-    scoreCriterion(c, essayContent)
-  );
+  const rawRows = (
+    criteria.length ? criteria : normalizeRubric(null).criteria
+  ).map((c) => scoreCriterion(c, essayContent));
 
   const { rubricScores, totalScore, maxScore } = reconcileRubricScores(rawRows);
 
@@ -335,11 +330,14 @@ export function gradeEssay(essayContent, rubricData) {
 function enrichConstructiveSuggestions(suggestions, rubricScores) {
   const tips = [...suggestions];
   const byId = Object.fromEntries(
-    (rubricScores ?? []).map((r) => [String(r.id ?? r.name).toLowerCase(), r])
+    (rubricScores ?? []).map((r) => [String(r.id ?? r.name).toLowerCase(), r]),
   );
-  if (byId.content && Number(byId.content.score) < Number(byId.content.maxScore) * 0.75) {
+  if (
+    byId.content &&
+    Number(byId.content.score) < Number(byId.content.maxScore) * 0.75
+  ) {
     tips.push(
-      "Content: Strengthen your main argument with specific examples tied to the prompt."
+      "Content: Strengthen your main argument with specific examples tied to the prompt.",
     );
   }
   if (
@@ -347,12 +345,15 @@ function enrichConstructiveSuggestions(suggestions, rubricScores) {
     Number(byId.organization.score) < Number(byId.organization.maxScore) * 0.75
   ) {
     tips.push(
-      "Organization: Use clear introduction, body, and conclusion paragraphs for flow."
+      "Organization: Use clear introduction, body, and conclusion paragraphs for flow.",
     );
   }
-  if (byId.language && Number(byId.language.score) < Number(byId.language.maxScore) * 0.75) {
+  if (
+    byId.language &&
+    Number(byId.language.score) < Number(byId.language.maxScore) * 0.75
+  ) {
     tips.push(
-      "Language: Vary sentence length and word choice to improve clarity and academic tone."
+      "Language: Vary sentence length and word choice to improve clarity and academic tone.",
     );
   }
   if (
@@ -360,34 +361,27 @@ function enrichConstructiveSuggestions(suggestions, rubricScores) {
     Number(byId.mechanics.score) < Number(byId.mechanics.maxScore) * 0.75
   ) {
     tips.push(
-      "Mechanics: Proofread punctuation, spacing, and capitalization before submitting."
+      "Mechanics: Proofread punctuation, spacing, and capitalization before submitting.",
     );
   }
   return Array.from(new Set(tips)).slice(0, 8);
 }
 
-
-
 function normalizePayload(input, rubricData) {
-
   if (input && typeof input === "object" && !Array.isArray(input)) {
-
     return {
-
       content: String(input.content ?? ""),
 
       rubric: input.rubric ?? null,
 
       language: input.language ?? detectLanguage(input.content ?? ""),
 
-      prompt: input.prompt ?? input.rubric?.prompt ?? input.rubric?.instruction ?? "",
-
+      prompt:
+        input.prompt ?? input.rubric?.prompt ?? input.rubric?.instruction ?? "",
     };
-
   }
 
   return {
-
     content: String(input ?? ""),
 
     rubric: rubricData ?? null,
@@ -395,19 +389,14 @@ function normalizePayload(input, rubricData) {
     language: detectLanguage(input ?? ""),
 
     prompt: rubricData?.prompt ?? rubricData?.instruction ?? "",
-
   };
-
 }
-
-
 
 function normalizeMlResponse(data) {
   const baseSuggestions = data.suggestions ?? [];
   const reconciled = reconcileRubricScores(data.rubricScores ?? []);
-  const mlTotal = roundHalf(
-    Math.min(10, Number(data.totalScore ?? data.final_score ?? reconciled.totalScore))
-  );
+  // Always use the reconciled total score from individual rubric scores, not the ML backend's total
+  const mlTotal = roundHalf(Math.min(10, reconciled.totalScore));
 
   return {
     totalScore: mlTotal,
@@ -415,59 +404,46 @@ function normalizeMlResponse(data) {
     rubricScores: reconciled.rubricScores,
     strengths: data.strengths ?? [],
     weaknesses: data.weaknesses ?? [],
-    suggestions: enrichConstructiveSuggestions(baseSuggestions, reconciled.rubricScores),
+    suggestions: enrichConstructiveSuggestions(
+      baseSuggestions,
+      reconciled.rubricScores,
+    ),
 
     metadata: data.metadata ?? {
-
       language: data.language,
 
       engine: data.engine,
 
       prompt_relevance_similarity: data.prompt_relevance_similarity,
-
     },
-
   };
-
 }
 
-
-
 async function callMlEngine({ content, rubric, language, prompt }) {
-
   const url = `${AI_ENGINE_BASE || ""}/api/score`;
 
   console.debug("[AI] POST", url, { language, chars: content.length });
 
-
-
   const res = await fetch(url, {
-
     method: "POST",
 
     headers: { "Content-Type": "application/json" },
 
     body: JSON.stringify({ content, rubric, language, prompt }),
-
   });
-
-
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-
-    throw new Error(data.error || data.details || `ML engine HTTP ${res.status}`);
-
+    throw new Error(
+      data.error || data.details || `ML engine HTTP ${res.status}`,
+    );
   }
 
   if (data.error) throw new Error(data.error);
 
   return normalizeMlResponse(data);
-
 }
-
-
 
 /** Primary grading entry — ML backend first, heuristic fallback. */
 
@@ -510,29 +486,19 @@ export async function gradeEssayWithAI(input, rubricData) {
     const result = await callMlEngine(payload);
 
     console.debug("[AI] ML success", {
-
       totalScore: result.totalScore,
 
       engine: result.metadata?.engine,
 
       language: result.metadata?.language,
-
     });
 
     return result;
-
   } catch (err) {
-
     console.warn("[AI] ML engine unavailable — heuristic fallback", err);
 
     return gradeEssay(payload.content, payload.rubric);
-
   }
-
 }
 
-
-
 export default gradeEssay;
-
-

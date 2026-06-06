@@ -37,7 +37,7 @@ export function logSupabaseError(error, context) {
   if (payload.likelyRls) {
     console.error(
       `[Supabase RLS] ${context} — Row Level Security may be blocking this operation. Run supabase/rls_policies.sql or check policies.`,
-      payload
+      payload,
     );
   } else {
     console.error(`[Supabase] ${context}`, payload);
@@ -52,7 +52,10 @@ function toUserFriendlyDbError(error, context = "") {
   const lower = message.toLowerCase();
 
   // Hide raw constraint strings from UI
-  if (lower.includes("null value in column") && lower.includes("assignment_task_id")) {
+  if (
+    lower.includes("null value in column") &&
+    lower.includes("assignment_task_id")
+  ) {
     return { ...error, message: "Please select a task before saving." };
   }
   if (lower.includes("null value in column") && lower.includes("language_id")) {
@@ -61,11 +64,17 @@ function toUserFriendlyDbError(error, context = "") {
 
   // Generic fallback for common Postgres constraint noise
   if (lower.includes("violates not-null constraint")) {
-    return { ...error, message: "Missing required fields. Please review your selections and try again." };
+    return {
+      ...error,
+      message:
+        "Missing required fields. Please review your selections and try again.",
+    };
   }
   if (
     lower.includes("foreign key") &&
-    (lower.includes("assignment_task") || lower.includes("fk_rubric") || lower.includes("rubrics"))
+    (lower.includes("assignment_task") ||
+      lower.includes("fk_rubric") ||
+      lower.includes("rubrics"))
   ) {
     return {
       ...error,
@@ -87,7 +96,10 @@ export async function getAuthUserId() {
 export async function assertAssignmentTaskExists(assignmentTaskId) {
   const id = Number(assignmentTaskId);
   if (!id || Number.isNaN(id)) {
-    return { exists: false, error: new Error("Please enter a valid assignment task ID.") };
+    return {
+      exists: false,
+      error: new Error("Please enter a valid assignment task ID."),
+    };
   }
   const { data, error } = await getAssignmentTaskById(id);
   if (error) return { exists: false, error };
@@ -95,7 +107,7 @@ export async function assertAssignmentTaskExists(assignmentTaskId) {
     return {
       exists: false,
       error: new Error(
-        "That assignment does not exist. Create the assignment on your dashboard first, then upload the rubric."
+        "That assignment does not exist. Create the assignment on your dashboard first, then upload the rubric.",
       ),
     };
   }
@@ -162,14 +174,14 @@ export async function signInWithGoogle(redirectPath = "/role_selection") {
           queryParams: { access_type: "offline", prompt: "consent" },
         },
       }),
-    "auth.signInWithGoogle"
+    "auth.signInWithGoogle",
   );
 }
 
 export async function signInWithEmail(email, password) {
   return safeQuery(
     async () => supabase.auth.signInWithPassword({ email, password }),
-    "auth.signInWithEmail"
+    "auth.signInWithEmail",
   );
 }
 
@@ -181,7 +193,7 @@ export async function signUpWithEmail(email, password, metadata = {}) {
         password,
         options: { data: metadata },
       }),
-    "auth.signUpWithEmail"
+    "auth.signUpWithEmail",
   );
 }
 
@@ -225,11 +237,11 @@ export async function syncUserToDatabase(session, options = {}) {
             full_name: fullName,
             role,
           },
-          { onConflict: "id" }
+          { onConflict: "id" },
         )
         .select()
         .single(),
-    "users.syncUserToDatabase"
+    "users.syncUserToDatabase",
   );
 }
 
@@ -241,8 +253,13 @@ export async function syncUser(session, options) {
 export async function updateUserRole(userId, role) {
   return safeQuery(
     async () =>
-      supabase.from("users").update({ role }).eq("id", userId).select().single(),
-    "users.updateUserRole"
+      supabase
+        .from("users")
+        .update({ role })
+        .eq("id", userId)
+        .select()
+        .single(),
+    "users.updateUserRole",
   );
 }
 
@@ -252,8 +269,9 @@ export async function updateUserRole(userId, role) {
 
 export async function getUserProfile(userId) {
   return safeQuery(
-    async () => supabase.from("users").select("*").eq("id", userId).maybeSingle(),
-    "users.getUserProfile"
+    async () =>
+      supabase.from("users").select("*").eq("id", userId).maybeSingle(),
+    "users.getUserProfile",
   );
 }
 
@@ -262,7 +280,7 @@ export const fetchUserProfile = getUserProfile;
 export async function upsertUserProfile(profile) {
   return safeQuery(
     async () => supabase.from("users").upsert(profile).select().single(),
-    "users.upsertUserProfile"
+    "users.upsertUserProfile",
   );
 }
 
@@ -270,22 +288,25 @@ export async function updateUserProfile(userId, updates) {
   return safeQuery(
     async () =>
       supabase.from("users").update(updates).eq("id", userId).select().single(),
-    "users.updateUserProfile"
+    "users.updateUserProfile",
   );
 }
 
 export async function deleteUserProfile(userId) {
   return safeQuery(
     async () => supabase.from("users").delete().eq("id", userId),
-    "users.deleteUserProfile"
+    "users.deleteUserProfile",
   );
 }
 
 export async function listUsers() {
   return safeQuery(
     async () =>
-      supabase.from("users").select("*").order("created_at", { ascending: false }),
-    "users.listUsers"
+      supabase
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    "users.listUsers",
   );
 }
 
@@ -321,10 +342,12 @@ export async function fetchStudentTodoTasks(userId) {
   const completedIds = new Set(
     (docs ?? [])
       .filter((d) =>
-        ["submitted", "scored", "graded"].includes(String(d.status ?? "").toLowerCase())
+        ["submitted", "scored", "graded"].includes(
+          String(d.status ?? "").toLowerCase(),
+        ),
       )
       .map((d) => d.assignment_task_id)
-      .filter(Boolean)
+      .filter(Boolean),
   );
 
   const open = (tasks ?? []).filter((t) => !completedIds.has(t.id));
@@ -342,7 +365,8 @@ export async function fetchTeacherAssignmentTasks(teacherId) {
 /** Submissions for essays tied to a teacher's assignments. */
 export async function fetchTeacherSubmissions(teacherId, { status } = {}) {
   return safeQuery(async () => {
-    const { data: tasks, error: taskErr } = await fetchTeacherAssignmentTasks(teacherId);
+    const { data: tasks, error: taskErr } =
+      await fetchTeacherAssignmentTasks(teacherId);
     if (taskErr) return { data: null, error: taskErr };
     const taskIds = (tasks ?? []).map((t) => t.id);
     if (!taskIds.length) return { data: [], error: null };
@@ -367,29 +391,35 @@ export async function getAssignmentTaskById(id) {
   return safeQuery(
     async () =>
       supabase.from("assignment_tasks").select("*").eq("id", id).maybeSingle(),
-    "assignment_tasks.getById"
+    "assignment_tasks.getById",
   );
 }
 
 export async function createAssignmentTask(task) {
   return safeQuery(
-    async () => supabase.from("assignment_tasks").insert(task).select().single(),
-    "assignment_tasks.create"
+    async () =>
+      supabase.from("assignment_tasks").insert(task).select().single(),
+    "assignment_tasks.create",
   );
 }
 
 export async function updateAssignmentTask(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("assignment_tasks").update(updates).eq("id", id).select().single(),
-    "assignment_tasks.update"
+      supabase
+        .from("assignment_tasks")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single(),
+    "assignment_tasks.update",
   );
 }
 
 export async function deleteAssignmentTask(id) {
   return safeQuery(
     async () => supabase.from("assignment_tasks").delete().eq("id", id),
-    "assignment_tasks.delete"
+    "assignment_tasks.delete",
   );
 }
 
@@ -408,14 +438,14 @@ export async function listClasses(filters = {}) {
 export async function getClassById(id) {
   return safeQuery(
     async () => supabase.from("classes").select("*").eq("id", id).maybeSingle(),
-    "classes.getById"
+    "classes.getById",
   );
 }
 
 export async function createClass(classRow) {
   return safeQuery(
     async () => supabase.from("classes").insert(classRow).select().single(),
-    "classes.create"
+    "classes.create",
   );
 }
 
@@ -423,14 +453,14 @@ export async function updateClass(id, updates) {
   return safeQuery(
     async () =>
       supabase.from("classes").update(updates).eq("id", id).select().single(),
-    "classes.update"
+    "classes.update",
   );
 }
 
 export async function deleteClass(id) {
   return safeQuery(
     async () => supabase.from("classes").delete().eq("id", id),
-    "classes.delete"
+    "classes.delete",
   );
 }
 
@@ -504,11 +534,14 @@ async function resolveDefaultAssignmentTaskId() {
     const id = data?.[0]?.id ?? null;
     if (!id) {
       throw new Error(
-        "No assignment tasks exist. Create at least 1 row in assignment_tasks to avoid foreign key errors."
+        "No assignment tasks exist. Create at least 1 row in assignment_tasks to avoid foreign key errors.",
       );
     }
     _defaultAssignmentTaskId = id;
-    console.debug("[Supabase] defaults.assignment_task_id", { id, title: data?.[0]?.title ?? null });
+    console.debug("[Supabase] defaults.assignment_task_id", {
+      id,
+      title: data?.[0]?.title ?? null,
+    });
     return id;
   } catch (e) {
     console.warn("[Supabase] defaults.assignment_task_id resolve failed", e);
@@ -530,11 +563,14 @@ async function resolveDefaultLanguageId() {
     const id = data?.[0]?.id ?? null;
     if (!id) {
       throw new Error(
-        "No languages exist. Create at least 1 row in languages to avoid foreign key errors."
+        "No languages exist. Create at least 1 row in languages to avoid foreign key errors.",
       );
     }
     _defaultLanguageId = id;
-    console.debug("[Supabase] defaults.language_id", { id, name: data?.[0]?.name ?? null });
+    console.debug("[Supabase] defaults.language_id", {
+      id,
+      name: data?.[0]?.name ?? null,
+    });
     return id;
   } catch (e) {
     console.warn("[Supabase] defaults.language_id resolve failed", e);
@@ -571,7 +607,10 @@ export async function fetchDocuments({ userId, role } = {}) {
   return safeQuery(async () => {
     const uid = userId ?? (await getAuthUserId());
     if (!uid) {
-      return { data: [], error: new Error("You must be signed in to view documents.") };
+      return {
+        data: [],
+        error: new Error("You must be signed in to view documents."),
+      };
     }
     console.debug("[Supabase] documents.fetchDocuments", { userId: uid, role });
     let query = supabase
@@ -582,7 +621,9 @@ export async function fetchDocuments({ userId, role } = {}) {
     if (role) {
       query = query.or(`role.eq.${role},role.is.null`);
     }
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
     if (error) return { data: null, error };
     return { data: data ?? [], error: null };
   }, "documents.fetchDocuments");
@@ -619,7 +660,9 @@ export async function getDocuments(filters = {}) {
 
 export async function listDocuments(filters = {}) {
   if (filters.teacherId && filters.scope === "submissions") {
-    return fetchTeacherSubmissions(filters.teacherId, { status: filters.status });
+    return fetchTeacherSubmissions(filters.teacherId, {
+      status: filters.status,
+    });
   }
 
   return safeQuery(async () => {
@@ -643,7 +686,12 @@ export async function listDocuments(filters = {}) {
 /**
  * Search documents by title OR content (case-insensitive).
  */
-export async function searchDocuments({ userId, role, query, excludeStatus = "trash" }) {
+export async function searchDocuments({
+  userId,
+  role,
+  query,
+  excludeStatus = "trash",
+}) {
   const term = query?.trim();
   if (!term) {
     return listDocuments({ userId, role, excludeStatus });
@@ -674,8 +722,9 @@ export async function searchDocuments({ userId, role, query, excludeStatus = "tr
 
 export async function getDocumentById(id) {
   return safeQuery(
-    async () => supabase.from("documents").select("*").eq("id", id).maybeSingle(),
-    "documents.getById"
+    async () =>
+      supabase.from("documents").select("*").eq("id", id).maybeSingle(),
+    "documents.getById",
   );
 }
 
@@ -691,14 +740,19 @@ export async function updateDocument(id, updates) {
   return safeQuery(async () => {
     const seed = await verifyDatabaseSchema();
     if (seed.error) return { data: null, error: seed.error };
-    return supabase.from("documents").update(updates).eq("id", id).select().single();
+    return supabase
+      .from("documents")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
   }, "documents.update");
 }
 
 export async function deleteDocument(id) {
   return safeQuery(
     async () => supabase.from("documents").delete().eq("id", id),
-    "documents.delete"
+    "documents.delete",
   );
 }
 
@@ -719,15 +773,30 @@ export async function saveDocument(docData) {
   return saveDocumentDraft(docData);
 }
 
-export async function saveDocumentDraft({ userId, role, title, content, documentId, assignmentTaskId, classId, languageId }) {
+export async function saveDocumentDraft({
+  userId,
+  role,
+  title,
+  content,
+  documentId,
+  assignmentTaskId,
+  classId,
+  languageId,
+}) {
   let resolvedAssignmentTaskId;
   let resolvedLanguageId;
   try {
     resolvedAssignmentTaskId =
-      assignmentTaskId == null ? await resolveDefaultAssignmentTaskId() : assignmentTaskId;
-    resolvedLanguageId = languageId == null ? await resolveDefaultLanguageId() : languageId;
+      assignmentTaskId == null
+        ? await resolveDefaultAssignmentTaskId()
+        : assignmentTaskId;
+    resolvedLanguageId =
+      languageId == null ? await resolveDefaultLanguageId() : languageId;
   } catch (e) {
-    const err = toUserFriendlyDbError(e, "documents.saveDocumentDraft.defaults");
+    const err = toUserFriendlyDbError(
+      e,
+      "documents.saveDocumentDraft.defaults",
+    );
     return { data: null, error: err };
   }
 
@@ -763,7 +832,11 @@ export async function uploadDocumentFromFile(userId, role, file) {
 
   try {
     const textContent = await readFileAsText(file);
-    const { data: uploadData, error: uploadError, path } = await uploadDocumentFile(userId, file);
+    const {
+      data: uploadData,
+      error: uploadError,
+      path,
+    } = await uploadDocumentFile(userId, file);
 
     let content = textContent;
     if (uploadError && !textContent) {
@@ -779,7 +852,13 @@ export async function uploadDocumentFromFile(userId, role, file) {
       assignmentTaskId = await resolveDefaultAssignmentTaskId();
       languageId = await resolveDefaultLanguageId();
     } catch (e) {
-      return { data: null, error: toUserFriendlyDbError(e, "documents.uploadDocumentFromFile.defaults") };
+      return {
+        data: null,
+        error: toUserFriendlyDbError(
+          e,
+          "documents.uploadDocumentFromFile.defaults",
+        ),
+      };
     }
 
     return createDocument({
@@ -835,37 +914,45 @@ export async function listEvaluations(filters = {}) {
   return safeQuery(async () => {
     let query = supabase.from("evaluations").select("*");
     if (filters.essayId) query = query.eq("essay_id", filters.essayId);
-    if (filters.evaluatorId) query = query.eq("evaluator_id", filters.evaluatorId);
+    if (filters.evaluatorId)
+      query = query.eq("evaluator_id", filters.evaluatorId);
     return query.order("evaluated_at", { ascending: false });
   }, "evaluations.list");
 }
 
 export async function getEvaluationById(id) {
   return safeQuery(
-    async () => supabase.from("evaluations").select("*").eq("id", id).maybeSingle(),
-    "evaluations.getById"
+    async () =>
+      supabase.from("evaluations").select("*").eq("id", id).maybeSingle(),
+    "evaluations.getById",
   );
 }
 
 export async function createEvaluation(evaluation) {
   return safeQuery(
-    async () => supabase.from("evaluations").insert(evaluation).select().single(),
-    "evaluations.create"
+    async () =>
+      supabase.from("evaluations").insert(evaluation).select().single(),
+    "evaluations.create",
   );
 }
 
 export async function updateEvaluation(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("evaluations").update(updates).eq("id", id).select().single(),
-    "evaluations.update"
+      supabase
+        .from("evaluations")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single(),
+    "evaluations.update",
   );
 }
 
 export async function deleteEvaluation(id) {
   return safeQuery(
     async () => supabase.from("evaluations").delete().eq("id", id),
-    "evaluations.delete"
+    "evaluations.delete",
   );
 }
 
@@ -889,29 +976,42 @@ export async function submitEvaluation({
     const { data: essay, error: essayErr } = await getDocumentById(essayId);
     if (essayErr) return { data: null, error: essayErr };
     if (!essay) {
-      return { data: null, error: new Error("Essay not found. Refresh and try again.") };
+      return {
+        data: null,
+        error: new Error("Essay not found. Refresh and try again."),
+      };
     }
 
     const sessionUserId = evaluatorId ?? (await getAuthUserId());
     if (!sessionUserId) {
-      return { data: null, error: new Error("You must be signed in to submit a grade.") };
+      return {
+        data: null,
+        error: new Error("You must be signed in to submit a grade."),
+      };
     }
 
     const numericScore = Number(totalScore);
     if (Number.isNaN(numericScore)) {
-      return { data: null, error: new Error("Please enter a valid numeric score.") };
+      return {
+        data: null,
+        error: new Error("Please enter a valid numeric score."),
+      };
     }
     const clampedScore = Math.max(0, Math.min(10, numericScore));
 
-    const { data: evaluation, error: evalError } = await createEvaluation({
-      essay_id: essayId,
-      evaluator_id: sessionUserId,
+    // Ensure essayId is treated as a string (UUID) to avoid integer type errors
+    const evaluationPayload = {
+      essay_id: String(essayId),
+      evaluator_id: String(sessionUserId),
       total_score: clampedScore,
       status: status || "scored",
       evaluated_at: new Date().toISOString(),
       suggestions: suggestions ?? null,
       rubric_matrix: rubricMatrix ?? null,
-    });
+    };
+
+    const { data: evaluation, error: evalError } =
+      await createEvaluation(evaluationPayload);
 
     if (evalError) return { data: null, error: evalError };
 
@@ -923,7 +1023,8 @@ export async function submitEvaluation({
         suggestions: feedbackSuggestions ?? suggestions ?? null,
       });
 
-      if (fbError) return { data: { evaluation, feedback: null }, error: fbError };
+      if (fbError)
+        return { data: { evaluation, feedback: null }, error: fbError };
       return { data: { evaluation, feedback }, error: null };
     }
 
@@ -980,7 +1081,7 @@ export async function getStudentGradedEssays(userId) {
           document: doc,
           evaluation,
         };
-      })
+      }),
     );
 
     return { data: enriched.filter((e) => e.evaluation), error: null };
@@ -994,22 +1095,24 @@ export async function getStudentGradedEssays(userId) {
 export async function listFeedback(filters = {}) {
   return safeQuery(async () => {
     let query = supabase.from("feedback").select("*");
-    if (filters.evaluationId) query = query.eq("evaluation_id", filters.evaluationId);
+    if (filters.evaluationId)
+      query = query.eq("evaluation_id", filters.evaluationId);
     return query.order("created_at", { ascending: false });
   }, "feedback.list");
 }
 
 export async function getFeedbackById(id) {
   return safeQuery(
-    async () => supabase.from("feedback").select("*").eq("id", id).maybeSingle(),
-    "feedback.getById"
+    async () =>
+      supabase.from("feedback").select("*").eq("id", id).maybeSingle(),
+    "feedback.getById",
   );
 }
 
 export async function createFeedback(feedback) {
   return safeQuery(
     async () => supabase.from("feedback").insert(feedback).select().single(),
-    "feedback.create"
+    "feedback.create",
   );
 }
 
@@ -1017,14 +1120,14 @@ export async function updateFeedback(id, updates) {
   return safeQuery(
     async () =>
       supabase.from("feedback").update(updates).eq("id", id).select().single(),
-    "feedback.update"
+    "feedback.update",
   );
 }
 
 export async function deleteFeedback(id) {
   return safeQuery(
     async () => supabase.from("feedback").delete().eq("id", id),
-    "feedback.delete"
+    "feedback.delete",
   );
 }
 
@@ -1045,14 +1148,14 @@ export async function listRubrics(filters = {}) {
 export async function getRubricById(id) {
   return safeQuery(
     async () => supabase.from("rubrics").select("*").eq("id", id).maybeSingle(),
-    "rubrics.getById"
+    "rubrics.getById",
   );
 }
 
 export async function createRubric(rubric) {
   return safeQuery(
     async () => supabase.from("rubrics").insert(rubric).select().single(),
-    "rubrics.create"
+    "rubrics.create",
   );
 }
 
@@ -1071,36 +1174,38 @@ export async function createRubricWithValidation(rubric) {
 
 export async function updateRubric(id, updates) {
   return safeQuery(
-    async () => supabase.from("rubrics").update(updates).eq("id", id).select().single(),
-    "rubrics.update"
+    async () =>
+      supabase.from("rubrics").update(updates).eq("id", id).select().single(),
+    "rubrics.update",
   );
 }
 
 export async function deleteRubric(id) {
   return safeQuery(
     async () => supabase.from("rubrics").delete().eq("id", id),
-    "rubrics.delete"
+    "rubrics.delete",
   );
 }
 
 export async function listCriteria(rubricId) {
   return safeQuery(
     async () => supabase.from("criteria").select("*").eq("rubric_id", rubricId),
-    "criteria.list"
+    "criteria.list",
   );
 }
 
 export async function getCriteriaById(id) {
   return safeQuery(
-    async () => supabase.from("criteria").select("*").eq("id", id).maybeSingle(),
-    "criteria.getById"
+    async () =>
+      supabase.from("criteria").select("*").eq("id", id).maybeSingle(),
+    "criteria.getById",
   );
 }
 
 export async function createCriteria(criteria) {
   return safeQuery(
     async () => supabase.from("criteria").insert(criteria).select().single(),
-    "criteria.create"
+    "criteria.create",
   );
 }
 
@@ -1108,28 +1213,29 @@ export async function updateCriteria(id, updates) {
   return safeQuery(
     async () =>
       supabase.from("criteria").update(updates).eq("id", id).select().single(),
-    "criteria.update"
+    "criteria.update",
   );
 }
 
 export async function deleteCriteria(id) {
   return safeQuery(
     async () => supabase.from("criteria").delete().eq("id", id),
-    "criteria.delete"
+    "criteria.delete",
   );
 }
 
 export async function listLanguages() {
   return safeQuery(
-    async () => supabase.from("languages").select("*").order("name", { ascending: true }),
-    "languages.list"
+    async () =>
+      supabase.from("languages").select("*").order("name", { ascending: true }),
+    "languages.list",
   );
 }
 
 export async function createLanguage(language) {
   return safeQuery(
     async () => supabase.from("languages").insert(language).select().single(),
-    "languages.create"
+    "languages.create",
   );
 }
 
@@ -1137,44 +1243,53 @@ export async function updateLanguage(id, updates) {
   return safeQuery(
     async () =>
       supabase.from("languages").update(updates).eq("id", id).select().single(),
-    "languages.update"
+    "languages.update",
   );
 }
 
 export async function deleteLanguage(id) {
   return safeQuery(
     async () => supabase.from("languages").delete().eq("id", id),
-    "languages.delete"
+    "languages.delete",
   );
 }
 
 export async function listScoreDetails(evaluationId) {
   return safeQuery(
     async () =>
-      supabase.from("score_details").select("*").eq("evaluation_id", evaluationId),
-    "score_details.list"
+      supabase
+        .from("score_details")
+        .select("*")
+        .eq("evaluation_id", evaluationId),
+    "score_details.list",
   );
 }
 
 export async function createScoreDetail(scoreDetail) {
   return safeQuery(
-    async () => supabase.from("score_details").insert(scoreDetail).select().single(),
-    "score_details.create"
+    async () =>
+      supabase.from("score_details").insert(scoreDetail).select().single(),
+    "score_details.create",
   );
 }
 
 export async function updateScoreDetail(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("score_details").update(updates).eq("id", id).select().single(),
-    "score_details.update"
+      supabase
+        .from("score_details")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single(),
+    "score_details.update",
   );
 }
 
 export async function deleteScoreDetail(id) {
   return safeQuery(
     async () => supabase.from("score_details").delete().eq("id", id),
-    "score_details.delete"
+    "score_details.delete",
   );
 }
 
@@ -1185,19 +1300,26 @@ export async function deleteScoreDetail(id) {
 function isStorageBucketNotFound(error) {
   const message = (error?.message ?? "").toLowerCase();
   const status = error?.status ?? error?.statusCode;
-  return message.includes("bucket not found") || status === 404 || status === "404";
+  return (
+    message.includes("bucket not found") || status === 404 || status === "404"
+  );
 }
 
 function formatStorageError(error, bucket) {
   if (isStorageBucketNotFound(error)) {
-    console.error(`Check Supabase Dashboard: Bucket ${bucket} must be created.`);
-    return new Error(`Check Supabase Dashboard: Bucket "${bucket}" must be created.`);
+    console.error(
+      `Check Supabase Dashboard: Bucket ${bucket} must be created.`,
+    );
+    return new Error(
+      `Check Supabase Dashboard: Bucket "${bucket}" must be created.`,
+    );
   }
   return error;
 }
 
 export async function uploadDocumentFile(userId, file) {
-  if (!file) return { data: null, error: new Error("No file provided."), path: null };
+  if (!file)
+    return { data: null, error: new Error("No file provided."), path: null };
 
   const path = `${userId}/${Date.now()}-${sanitizeFileName(file.name)}`;
   try {
@@ -1208,8 +1330,13 @@ export async function uploadDocumentFile(userId, file) {
     if (result.error) {
       const formatted = formatStorageError(result.error, DOCUMENTS_BUCKET);
       logSupabaseError(
-        { code: result.error.name, message: formatted.message, details: null, hint: null },
-        "storage.uploadDocumentFile"
+        {
+          code: result.error.name,
+          message: formatted.message,
+          details: null,
+          hint: null,
+        },
+        "storage.uploadDocumentFile",
       );
       return { data: null, error: formatted, path: null };
     }
@@ -1222,8 +1349,11 @@ export async function uploadDocumentFile(userId, file) {
 
 export async function downloadDocumentFile(filePath) {
   try {
-    const result = await supabase.storage.from(DOCUMENTS_BUCKET).download(filePath);
-    if (result.error) logSupabaseError(result.error, "storage.downloadDocumentFile");
+    const result = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .download(filePath);
+    if (result.error)
+      logSupabaseError(result.error, "storage.downloadDocumentFile");
     return result;
   } catch (error) {
     return { data: null, error };
@@ -1239,7 +1369,11 @@ function sanitizeFileName(name) {
  */
 export async function uploadProfilePic(userId, file) {
   if (!file || !userId) {
-    return { data: null, url: null, error: new Error("User and file are required.") };
+    return {
+      data: null,
+      url: null,
+      error: new Error("User and file are required."),
+    };
   }
 
   const ext = file.name.split(".").pop() || "jpg";
@@ -1255,7 +1389,9 @@ export async function uploadProfilePic(userId, file) {
       return { data: null, url: null, error: formatted };
     }
 
-    const { data: publicData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
+    const { data: publicData } = supabase.storage
+      .from(AVATARS_BUCKET)
+      .getPublicUrl(path);
     const url = publicData?.publicUrl
       ? `${publicData.publicUrl}?t=${Date.now()}`
       : null;
@@ -1279,17 +1415,21 @@ export async function getProfileAvatarUrl(userId) {
     return { url: profile.avatar_url, error: null };
   }
 
-  const { data: files, error } = await supabase.storage.from(AVATARS_BUCKET).list(userId, {
-    limit: 1,
-    sortBy: { column: "updated_at", order: "desc" },
-  });
+  const { data: files, error } = await supabase.storage
+    .from(AVATARS_BUCKET)
+    .list(userId, {
+      limit: 1,
+      sortBy: { column: "updated_at", order: "desc" },
+    });
 
   if (error || !files?.length) {
     return { url: null, error };
   }
 
   const path = `${userId}/${files[0].name}`;
-  const { data: publicData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
+  const { data: publicData } = supabase.storage
+    .from(AVATARS_BUCKET)
+    .getPublicUrl(path);
   const url = publicData?.publicUrl ?? null;
   return { url, error: null };
 }
@@ -1299,23 +1439,36 @@ export async function getProfileAvatarUrl(userId) {
  */
 export async function releaseScore(evaluationId) {
   try {
-    const { data: evaluation, error: evalError } = await getEvaluationById(evaluationId);
+    const { data: evaluation, error: evalError } =
+      await getEvaluationById(evaluationId);
     if (evalError) return { data: null, error: evalError };
     if (!evaluation?.essay_id) {
-      return { data: null, error: new Error("Evaluation has no linked essay.") };
+      return {
+        data: null,
+        error: new Error("Evaluation has no linked essay."),
+      };
     }
 
-    const { data: releasedEval, error: releaseError } = await updateEvaluation(evaluationId, {
-      status: "released",
-    });
+    const { data: releasedEval, error: releaseError } = await updateEvaluation(
+      evaluationId,
+      {
+        status: "released",
+      },
+    );
     if (releaseError) return { data: null, error: releaseError };
 
-    const { data: doc, error: docError } = await updateDocument(evaluation.essay_id, {
-      status: "graded",
-    });
+    const { data: doc, error: docError } = await updateDocument(
+      evaluation.essay_id,
+      {
+        status: "graded",
+      },
+    );
     if (docError) return { data: null, error: docError };
 
-    return { data: { evaluation: releasedEval ?? evaluation, document: doc }, error: null };
+    return {
+      data: { evaluation: releasedEval ?? evaluation, document: doc },
+      error: null,
+    };
   } catch (error) {
     console.error("[Supabase] releaseScore", error);
     return { data: null, error };
@@ -1329,7 +1482,11 @@ export async function releaseScore(evaluationId) {
 export async function testSupabaseConnection() {
   const { session, error: sessionError } = await getSession();
   if (sessionError) {
-    return { ok: false, message: "Auth session check failed.", details: sessionError };
+    return {
+      ok: false,
+      message: "Auth session check failed.",
+      details: sessionError,
+    };
   }
 
   const { data, error } = await listAssignmentTasks();

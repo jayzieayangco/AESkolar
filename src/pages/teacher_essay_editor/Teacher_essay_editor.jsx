@@ -14,13 +14,19 @@ export default function Teacher_essay_editor() {
 
   const [title, setTitle] = useState(initialTitle);
   const [essayText, setEssayText] = useState(initialContent);
-  const [documentId, setDocumentId] = useState(location.state?.documentId ?? null);
+  const [documentId, setDocumentId] = useState(
+    location.state?.documentId ?? null,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
-  const savedSnapshot = useRef({ title: initialTitle, content: initialContent });
+  const savedSnapshot = useRef({
+    title: initialTitle,
+    content: initialContent,
+  });
 
   const isDirty =
-    title !== savedSnapshot.current.title || essayText !== savedSnapshot.current.content;
+    title !== savedSnapshot.current.title ||
+    essayText !== savedSnapshot.current.content;
 
   const { confirmIfDirty } = useUnsavedChanges(isDirty);
 
@@ -37,13 +43,15 @@ export default function Teacher_essay_editor() {
         }
         if (status === "error") setSaveStatus(msg || "Failed to save draft.");
       },
-    }
+    },
   );
 
   useEffect(() => {
     getSession().then(({ session }) => {
       if (!session) {
-        console.debug("[Auth] No session in teacher editor (live scoring still enabled).");
+        console.debug(
+          "[Auth] No session in teacher editor (live scoring still enabled).",
+        );
       }
     });
   }, []);
@@ -87,10 +95,16 @@ export default function Teacher_essay_editor() {
             title="Go Back"
             className="bg-transparent border-none p-0 m-0 cursor-pointer transition-all duration-200 hover:opacity-80 flex items-center focus:outline-none"
           >
-            <img src="/logo.png" alt="AESkolar Logo - Go Back" className="h-16 w-auto object-contain" />
+            <img
+              src="/logo.png"
+              alt="AESkolar Logo - Go Back"
+              className="h-16 w-auto object-contain"
+            />
           </button>
           <div className="flex flex-col flex-1">
-            <span className="text-[44px] font-bold text-[#1e293b] tracking-tight leading-none">AESkolar</span>
+            <span className="text-[44px] font-bold text-[#1e293b] tracking-tight leading-none">
+              AESkolar
+            </span>
             <span className="text-xs text-[#475569] mt-0.2 ml-1">
               Teacher Workspace • write better, learn smarter.
             </span>
@@ -98,7 +112,9 @@ export default function Teacher_essay_editor() {
           {saveStatus && (
             <span
               className={`text-sm font-medium ${
-                saveStatus.toLowerCase().includes("fail") ? "text-red-600" : "text-emerald-600"
+                saveStatus.toLowerCase().includes("fail")
+                  ? "text-red-600"
+                  : "text-emerald-600"
               }`}
             >
               {saveStatus}
@@ -127,11 +143,11 @@ export default function Teacher_essay_editor() {
             {isSaving ? "Saving..." : "Save Draft"}
           </button>
           <div className="text-xs font-medium text-[#475569]">
-            Word Count: {essayText.trim() === "" ? 0 : essayText.trim().split(/\s+/).length}
+            Word Count:{" "}
+            {essayText.trim() === "" ? 0 : essayText.trim().split(/\s+/).length}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

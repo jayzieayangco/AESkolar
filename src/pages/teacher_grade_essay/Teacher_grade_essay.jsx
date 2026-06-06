@@ -8,6 +8,7 @@ import {
   listEvaluations,
   releaseScore,
   fetchTeacherSubmissions,
+  getUserProfile,
 } from "../../services/api.js";
 import { gradeEssayWithAI } from "@ai-engine/gradingEngine.js";
 import AppPageHeader from "../../components/AppPageHeader.jsx";
@@ -34,7 +35,13 @@ export default function Teacher_Grade_Essay() {
   const [lastEvaluationId, setLastEvaluationId] = useState(null);
   const [gradeMessage, setGradeMessage] = useState("");
 
-  const sidebarItems = ["Dashboard", "Documents", "Grade Essays", "Trash", "Settings"];
+  const sidebarItems = [
+    "Dashboard",
+    "Documents",
+    "Grade Essays",
+    "Trash",
+    "Settings",
+  ];
 
   const handleNavigation = (item) => {
     if (item === "Dashboard") navigate("/teacher_dashboard");
@@ -56,10 +63,41 @@ export default function Teacher_Grade_Essay() {
       setEssays([]);
       return;
     }
-    setEssays(data ?? []);
+
+    // Fetch student names for each essay
+    const essaysWithStudentNames = await Promise.all(
+      (data ?? []).map(async (essay) => {
+        if (essay.user_id) {
+          const { data: userData } = await getUserProfile(essay.user_id);
+          return {
+            ...essay,
+            studentName:
+              userData?.full_name ||
+              userData?.email?.split("@")[0] ||
+              "Unknown Student",
+          };
+        }
+        return {
+          ...essay,
+          studentName: "Unknown Student",
+        };
+      }),
+    );
+
+    setEssays(essaysWithStudentNames);
     if (location.state?.essayId) {
       const { data: doc } = await getDocumentById(location.state.essayId);
-      if (doc) await handleSelectEssay(doc);
+      if (doc) {
+        // Add student name to the selected doc if it has user_id
+        if (doc.user_id) {
+          const { data: userData } = await getUserProfile(doc.user_id);
+          doc.studentName =
+            userData?.full_name ||
+            userData?.email?.split("@")[0] ||
+            "Unknown Student";
+        }
+        await handleSelectEssay(doc);
+      }
     }
   };
 
@@ -71,7 +109,10 @@ export default function Teacher_Grade_Essay() {
     if (!essay?.content?.trim()) return;
     setIsAiLoading(true);
     try {
-      const result = await gradeEssayWithAI({ content: essay.content, rubric: null });
+      const result = await gradeEssayWithAI({
+        content: essay.content,
+        rubric: null,
+      });
       const score = clampScore(result?.totalScore ?? 0);
       setProposedScore(score);
       setOverrideScore(String(score));
@@ -88,7 +129,9 @@ export default function Teacher_Grade_Essay() {
       setOverrideFeedback(text);
     } catch (e) {
       console.warn(e);
-      setProposedFeedback("AI proposal unavailable. Enter a manual score and feedback.");
+      setProposedFeedback(
+        "AI proposal unavailable. Enter a manual score and feedback.",
+      );
     } finally {
       setIsAiLoading(false);
     }
@@ -127,7 +170,9 @@ export default function Teacher_Grade_Essay() {
       if (evaluationId) {
         setLastEvaluationId(evaluationId);
         await updateDocument(selected.id, { status: "scored" });
-        setGradeMessage("Final grade saved. Click Release Score to show the student.");
+        setGradeMessage(
+          "Final grade saved. Click Release Score to show the student.",
+        );
       }
     } catch (err) {
       alert(err.message || "Grading failed.");
@@ -159,7 +204,7 @@ export default function Teacher_Grade_Essay() {
     const csv = [
       ["Title", "Status", "Created"].join(","),
       ...essays.map((e) =>
-        [e.title, formatDocumentStatus(e.status), e.created_at].join(",")
+        [e.title, formatDocumentStatus(e.status), e.created_at].join(","),
       ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -175,8 +220,12 @@ export default function Teacher_Grade_Essay() {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      String(e.title ?? "").toLowerCase().includes(q) ||
-      String(e.content ?? "").toLowerCase().includes(q)
+      String(e.title ?? "")
+        .toLowerCase()
+        .includes(q) ||
+      String(e.content ?? "")
+        .toLowerCase()
+        .includes(q)
     );
   });
 
@@ -190,7 +239,11 @@ export default function Teacher_Grade_Essay() {
 
       <div className="flex flex-1 w-full gap-8 overflow-hidden min-h-0">
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 rounded-tr-2xl shadow-[5px_0_15px_rgba(0,0,0,0.05)]">
-          <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
+          <SidebarNav
+            items={sidebarItems}
+            activeTab={activeTab}
+            onNavigate={handleNavigation}
+          />
           <SidebarProfileRow />
         </div>
 
@@ -228,9 +281,13 @@ export default function Teacher_Grade_Essay() {
           <div className="flex-1 bg-white border border-[#cbd5e1]/40 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
             <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto min-h-0">
               <div className="border border-slate-100 rounded-lg p-4 overflow-y-auto">
-                <h3 className="text-sm font-semibold text-slate-600 mb-3">Submissions</h3>
+                <h3 className="text-sm font-semibold text-slate-600 mb-3">
+                  Submissions
+                </h3>
                 {filteredEssays.length === 0 ? (
-                  <p className="text-slate-400 italic text-sm">No essays to grade.</p>
+                  <p className="text-slate-400 italic text-sm">
+                    No essays to grade.
+                  </p>
                 ) : (
                   filteredEssays.map((essay) => (
                     <button
@@ -245,6 +302,9 @@ export default function Teacher_Grade_Essay() {
                     >
                       <div className="font-medium">{essay.title}</div>
                       <div className="text-xs text-slate-500 mt-1">
+                        {essay.studentName || "Unknown Student"}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">
                         {formatDocumentStatus(essay.status)}
                       </div>
                     </button>
@@ -252,11 +312,13 @@ export default function Teacher_Grade_Essay() {
                 )}
               </div>
 
-              <div className="border border-slate-100 rounded-lg p-4 flex flex-col min-h-[420px] max-h-[calc(100vh-220px)]">
+              <div className="border border-slate-100 rounded-lg p-4 flex flex-col min-h-[500px] max-h-[calc(100vh-150px)]">
                 {selected ? (
                   <>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-slate-800">{selected.title}</h3>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        {selected.title}
+                      </h3>
                       <button
                         type="button"
                         onClick={() => {
@@ -283,7 +345,9 @@ export default function Teacher_Grade_Essay() {
                         Score (proposed) {isAiLoading ? "…" : ""}
                       </p>
                       <p className="text-2xl font-bold text-slate-800">
-                        {proposedScore != null ? `${proposedScore} / ${MAX_ESSAY_SCORE}` : "—"}
+                        {proposedScore != null
+                          ? `${proposedScore} / ${MAX_ESSAY_SCORE}`
+                          : "—"}
                       </p>
                     </div>
 
@@ -308,7 +372,11 @@ export default function Teacher_Grade_Essay() {
                       value={overrideScore}
                       onChange={(e) =>
                         setOverrideScore(
-                          String(clampScore(e.target.value === "" ? 0 : e.target.value))
+                          String(
+                            clampScore(
+                              e.target.value === "" ? 0 : e.target.value,
+                            ),
+                          ),
                         )
                       }
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 mb-2 text-sm"
@@ -320,7 +388,9 @@ export default function Teacher_Grade_Essay() {
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 mb-3 h-24 resize-none text-sm"
                     />
                     {gradeMessage && (
-                      <p className="text-sm text-emerald-700 mb-2">{gradeMessage}</p>
+                      <p className="text-sm text-emerald-700 mb-2">
+                        {gradeMessage}
+                      </p>
                     )}
                     <div className="flex gap-2 justify-end flex-wrap">
                       <button
@@ -342,7 +412,9 @@ export default function Teacher_Grade_Essay() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-slate-400 italic text-sm m-auto">Select an essay to grade.</p>
+                  <p className="text-slate-400 italic text-sm m-auto">
+                    Select an essay to grade.
+                  </p>
                 )}
               </div>
             </div>
