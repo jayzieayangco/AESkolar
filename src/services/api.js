@@ -942,7 +942,7 @@ export async function updateEvaluation(id, updates) {
         .update(updates)
         .eq("id", id)
         .select()
-        .single(),
+        .maybeSingle(),
     "evaluations.update",
   );
 }

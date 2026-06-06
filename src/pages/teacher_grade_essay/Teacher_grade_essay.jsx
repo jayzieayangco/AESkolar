@@ -68,7 +68,12 @@ export default function Teacher_Grade_Essay() {
     const essaysWithStudentNames = await Promise.all(
       (data ?? []).map(async (essay) => {
         if (essay.user_id) {
-          const { data: userData } = await getUserProfile(essay.user_id);
+          const { data: userData, error: userError } = await getUserProfile(
+            essay.user_id,
+          );
+          if (userError) {
+            console.error("Error fetching user profile:", userError);
+          }
           return {
             ...essay,
             studentName:
@@ -90,11 +95,21 @@ export default function Teacher_Grade_Essay() {
       if (doc) {
         // Add student name to the selected doc if it has user_id
         if (doc.user_id) {
-          const { data: userData } = await getUserProfile(doc.user_id);
+          const { data: userData, error: userError } = await getUserProfile(
+            doc.user_id,
+          );
+          if (userError) {
+            console.error(
+              "Error fetching user profile for selected doc:",
+              userError,
+            );
+          }
           doc.studentName =
             userData?.full_name ||
             userData?.email?.split("@")[0] ||
             "Unknown Student";
+        } else {
+          doc.studentName = "Unknown Student";
         }
         await handleSelectEssay(doc);
       }

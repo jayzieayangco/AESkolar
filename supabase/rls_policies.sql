@@ -61,6 +61,8 @@ END $$;
 -- =============================================================================
 CREATE POLICY "users_select_own" ON public.users FOR SELECT TO authenticated
   USING (id = auth.uid());
+CREATE POLICY "users_select_all" ON public.users FOR SELECT TO authenticated
+  USING (true);
 CREATE POLICY "users_insert_own" ON public.users FOR INSERT TO authenticated
   WITH CHECK (id = auth.uid());
 CREATE POLICY "users_update_own" ON public.users FOR UPDATE TO authenticated

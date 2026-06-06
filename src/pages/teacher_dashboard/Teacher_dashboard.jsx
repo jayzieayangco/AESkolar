@@ -268,7 +268,7 @@ export default function Teacher_Dashboard() {
                                 handleDeleteTask(task);
                                 setActiveMenuId(null);
                               }}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
+                              className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
                             >
                               Delete
                             </button>
