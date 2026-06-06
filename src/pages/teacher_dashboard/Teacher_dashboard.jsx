@@ -193,7 +193,7 @@ export default function Teacher_Dashboard() {
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
-        <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto box-border pr-2 pb-6">
+        <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto scrollbar-custom box-border pr-2 pb-6">
           <div>
             <h1 className="text-page-title">Welcome back, {userName}!</h1>
             <p className="text-xs text-[#475569] tracking-wide">
@@ -223,62 +223,61 @@ export default function Teacher_Dashboard() {
             </div>
             {teacherTasks.length === 0 ? (
               <p className="text-sm text-slate-500 italic">
-                No tasks yet. Create one above.
+                No tasks yet. 
               </p>
             ) : (
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {teacherTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm min-w-[200px] max-w-xs flex-1"
+                    className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm w-full relative flex flex-col justify-between min-h-[100px]"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-semibold text-slate-800">
-                        {task.title}
+                    {/* CHANGE: Added due date display */}
+                    <div>
+                      <p className="font-semibold text-slate-800 mb-1">{task.title}</p>
+                      <p className="text-xs text-slate-500">
+                        {task.due_date ? `Due ${task.due_date}` : "No due date set"}
                       </p>
-                      <div
-                        className="relative"
-                        ref={activeMenuId === task.id ? dropdownRef : null}
-                      >
-                        <button
-                          onClick={() =>
-                            setActiveMenuId(
-                              activeMenuId === task.id ? null : task.id,
-                            )
-                          }
-                          className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 transition-all cursor-pointer"
-                        >
-                          <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block"></span>
-                          <span className="w-2.5 h-2.5 bg-[#cbd5e1] rounded-full inline-block"></span>
-                        </button>
-
-                        {activeMenuId === task.id && (
-                          <div className="absolute right-0 top-full mt-1 z-30 w-32 bg-[#7ba4cc] border border-[#6993bc] rounded-lg shadow-lg overflow-hidden flex flex-col transform origin-top-right transition-all duration-100">
-                            <button
-                              onClick={() => {
-                                handleEditTask(task);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleDeleteTask(task);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 line-clamp-2">
-                      {task.instruction || "No instructions"}
-                    </p>
+
+                    {/* THREE DOTS CONTAINER */}
+                    <div
+                      className="absolute bottom-3 right-3"
+                      ref={activeMenuId === task.id ? dropdownRef : null}
+                    >
+                      <button
+                        onClick={() =>
+                          setActiveMenuId(activeMenuId === task.id ? null : task.id)
+                        }
+                        className="text-slate-400 hover:text-slate-600 px-2 transition-all cursor-pointer font-bold text-lg leading-none"
+                      >
+                        ...
+                      </button>
+
+                      {/* CHANGE: Positioned to the right of the dots */}
+                      {activeMenuId === task.id && (
+                        <div className="absolute top-0 left-full ml-2 z-30 w-24 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden flex flex-col transform transition-all duration-100">
+                          <button
+                            onClick={() => {
+                              handleEditTask(task);
+                              setActiveMenuId(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteTask(task);
+                              setActiveMenuId(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -346,7 +345,7 @@ export default function Teacher_Dashboard() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="w-full flex-1 overflow-y-auto block bg-white">
+                <tbody className="w-full flex-1 overflow-y-auto block bg-white scrollbar-custom">
                   {submissions.length === 0 ? (
                     <tr className="flex w-full border-b border-slate-50 text-slate-400 text-sm italic items-center justify-center h-32">
                       <td>No active student submissions loaded yet.</td>

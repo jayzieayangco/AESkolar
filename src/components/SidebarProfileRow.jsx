@@ -13,12 +13,12 @@ export default function SidebarProfileRow() {
   };
 
   return (
-    <div className="flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
+    <div className="relative flex items-center justify-between pt-5 px-6 border-t border-white/10 mb-2">
       <div className="flex items-center gap-3">
         <SidebarProfileIcon />
       </div>
 
-      <div>
+      <div className="absolute left-1/2 transform -translate-x-1/2">
         <button
           type="button"
           onClick={handleLogout}
