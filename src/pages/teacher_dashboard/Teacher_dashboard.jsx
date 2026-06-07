@@ -294,51 +294,53 @@ export default function Teacher_Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {classes.map((c) => (
-                    <div key={c.id} className="relative">
-                      <div
-                        onClick={() => setSelectedClass(c)}
-                        className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow h-full"
-                      >
-                        <h3 className="font-bold text-lg">
-                          {c.class_name || c.name}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {c.section || ""}
-                          {c.subject ? ` · ${c.subject}` : ""}
-                        </p>
+                    // 1. Removed overflow-hidden from the card container to allow menu to render
+                    <div key={c.id} className="w-56 h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative">
+                      
+                      {/* Main Clickable Area */}
+                      <div onClick={() => setSelectedClass(c)} className="flex flex-col flex-grow">
+                        <div className="bg-[#7ba4cc] p-4 h-24 flex flex-col justify-end rounded-t-xl">
+                          <h3 className="font-bold text-lg text-white truncate">
+                            {c.class_name || c.name}
+                          </h3>
+                          <p className="text-sm text-white/90 truncate">
+                            {c.section || "No Section"}
+                          </p>
+                        </div>
+                        <div className="flex-grow" />
                       </div>
 
-                      <div className="absolute top-3 right-3">
+                      {/* Footer */}
+                      <div className="p-2 border-t border-slate-100 flex justify-end relative">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveMenuId(
-                              activeMenuId === `class-${c.id}`
-                                ? null
-                                : `class-${c.id}`,
-                            );
+                            setActiveMenuId(activeMenuId === `class-${c.id}` ? null : `class-${c.id}`);
                           }}
-                          className="text-slate-400 font-bold text-lg cursor-pointer transition-all duration-200 hover:text-slate-600 hover:scale-110 active:scale-95"
+                          className="text-slate-600 font-bold text-lg hover:text-black px-2"
                         >
                           ...
                         </button>
+
+                        {/* 2. Changed to fixed positioning and added a z-index to ensure it renders on top */}
                         {activeMenuId === `class-${c.id}` && (
-                          <div className="absolute top-0 left-full ml-2 z-30 w-28 bg-white border border-slate-200 rounded-lg shadow-xl flex flex-col">
+                          <div 
+                            className="fixed z-[100] mt-8 w-28 bg-white border border-slate-200 rounded-lg shadow-xl cursor-pointer flex flex-col"
+                            style={{
+                              // This calculates the position based on the trigger button
+                              top: document.querySelector(`[data-id="btn-${c.id}"]`)?.getBoundingClientRect().bottom + 'px',
+                              left: document.querySelector(`[data-id="btn-${c.id}"]`)?.getBoundingClientRect().left + 'px'
+                            }}
+                          >
                             <button
-                              onClick={() => {
-                                handleEditClass(c);
-                                setActiveMenuId(null);
-                              }}
-                              className="px-4 py-2 text-sm text-left cursor-pointer transition-all duration-200 hover:bg-slate-50"
+                              onClick={(e) => { e.stopPropagation(); handleEditClass(c); setActiveMenuId(null); }}
+                              className="px-4 py-2 text-sm text-left hover:bg-slate-50"
                             >
                               Edit
                             </button>
                             <button
-                              onClick={() => {
-                                handleDeleteClass(c);
-                                setActiveMenuId(null);
-                              }}
-                              className="px-4 py-2 text-sm text-left text-red-600 cursor-pointer transition-all duration-200 hover:bg-red-50"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteClass(c); setActiveMenuId(null); }}
+                              className="px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50"
                             >
                               Delete
                             </button>
