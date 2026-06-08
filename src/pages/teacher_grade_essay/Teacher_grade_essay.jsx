@@ -187,6 +187,7 @@ export default function Teacher_Grade_Essay() {
   };
 
   const handleGrade = async () => {
+    console.log("handleGrade called");
     if (!selected || overrideScore === "") {
       alert("Select an essay and enter a final override score (0–10).");
       return;
@@ -194,6 +195,7 @@ export default function Teacher_Grade_Essay() {
     try {
       setIsGrading(true);
       const finalScore = clampScore(overrideScore);
+      console.log("Calling submitEvaluation...");
       const { data: result, error } = await submitEvaluation({
         essayId: selected.id,
         totalScore: finalScore,
@@ -202,16 +204,20 @@ export default function Teacher_Grade_Essay() {
         feedbackSuggestions: overrideFeedback,
         status: "scored",
       });
+      console.log("submitEvaluation returned:", { data: result, error });
       if (error) throw error;
       const evaluationId = result?.evaluation?.id;
+      console.log("Got evaluationId:", evaluationId);
       if (evaluationId) {
         setLastEvaluationId(evaluationId);
-        await updateDocument(selected.id, { status: "scored" });
         setGradeMessage(
           "Final grade saved. Click Release Score to show the student.",
         );
+        console.log("Calling loadEssays...");
+        loadEssays();
       }
     } catch (err) {
+      console.error("Error in handleGrade:", err);
       alert(err.message || "Grading failed.");
     } finally {
       setIsGrading(false);
@@ -219,17 +225,24 @@ export default function Teacher_Grade_Essay() {
   };
 
   const handleRelease = async () => {
+    console.log("handleRelease called");
+    console.log("lastEvaluationId:", lastEvaluationId);
     if (!lastEvaluationId) {
       alert("Save a grade first before releasing.");
       return;
     }
     try {
       setIsReleasing(true);
-      const { error } = await releaseScore(lastEvaluationId);
+      console.log("Calling releaseScore...");
+      const { data, error } = await releaseScore(lastEvaluationId);
+      console.log("releaseScore returned:", { data, error });
       if (error) throw error;
+      console.log("Successfully released!");
       setGradeMessage("Score released! Student can now see their grade.");
+      console.log("Calling loadEssays...");
       loadEssays();
     } catch (err) {
+      console.error("Error releasing score:", err);
       alert(err.message || "Release failed.");
     } finally {
       setIsReleasing(false);

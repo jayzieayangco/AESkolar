@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   getSession,
   getUserProfile,
@@ -22,6 +22,7 @@ import { formatDocumentStatus } from "../../utils/statusDisplay.js";
 
 export default function Teacher_Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab] = useState("Dashboard");
   const [userName, setUserName] = useState("Teacher");
   const [stats, setStats] = useState({ graded: 0, pending: 0, flagged: 0 });
@@ -112,16 +113,24 @@ export default function Teacher_Dashboard() {
   };
 
   useEffect(() => {
-    // Initial load
+    // Initial load, reload when location changes, or selected class changes
     loadData();
-  }, []);
+  }, [location.pathname, selectedClass]);
 
   useEffect(() => {
-    // Reload when selected class changes
-    if (selectedClass) {
-      loadData();
-    }
-  }, [selectedClass]);
+    // Reload data when the page is visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {

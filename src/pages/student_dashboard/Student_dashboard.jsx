@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   getSession,
   getUserProfile,
@@ -18,6 +18,7 @@ import SidebarProfileRow from "../../components/SidebarProfileRow.jsx";
 
 export default function Student_Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab] = useState("Dashboard");
   const [userName, setUserName] = useState("Student");
   const [todoTasks, setTodoTasks] = useState([]);
@@ -78,29 +79,7 @@ export default function Student_Dashboard() {
       if (error) throw error;
       alert("Submitted successfully.");
       setSelectedTask(null);
-      const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
-      const mappedTasks = (tasks ?? []).map((t) => ({
-        id: t.id,
-        title: t.title,
-        subject: "Assignment",
-        dueDate: t.created_at
-          ? `Due ${new Date(t.created_at).toLocaleDateString()}`
-          : "—",
-        instructions: t.instruction || "No instructions provided.",
-        class_id: t.class_id,
-      }));
-      setAllTasks(mappedTasks);
-      // Apply selected class filter
-      if (selectedClass) {
-        setTodoTasks(
-          mappedTasks.filter(
-            (task) =>
-              task.class_id === selectedClass.id || task.class_id === null,
-          ),
-        );
-      } else {
-        setTodoTasks(mappedTasks);
-      }
+      await loadAllData(); // Reload all data
     } catch (err) {
       alert(err.message || "Submit failed.");
     } finally {
@@ -121,6 +100,46 @@ export default function Student_Dashboard() {
       }));
       setClasses(mappedClasses);
     }
+  };
+
+  const loadAllData = async () => {
+    const { session } = await getSession();
+    if (!session) {
+      navigate("/sign_in");
+      return;
+    }
+    setSessionUserId(session.user.id);
+    const { data: profile } = await getUserProfile(session.user.id);
+    setUserName(profile?.full_name || "Student");
+
+    await loadClasses(session.user.id);
+
+    const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
+    const mappedTasks = (tasks ?? []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      subject: "Assignment",
+      dueDate: t.created_at
+        ? `Due ${new Date(t.created_at).toLocaleDateString()}`
+        : "—",
+      instructions: t.instruction || "No instructions provided.",
+      class_id: t.class_id,
+    }));
+    setAllTasks(mappedTasks);
+    // Apply selected class filter
+    if (selectedClass) {
+      setTodoTasks(
+        mappedTasks.filter(
+          (task) =>
+            task.class_id === selectedClass.id || task.class_id === null,
+        ),
+      );
+    } else {
+      setTodoTasks(mappedTasks);
+    }
+
+    const { data: graded } = await getStudentGradedEssays(session.user.id);
+    setGradedEssays(graded ?? []);
   };
 
   const openJoinModal = () => {
@@ -170,36 +189,8 @@ export default function Student_Dashboard() {
   const [allTasks, setAllTasks] = useState([]); // Store all tasks to filter later
 
   useEffect(() => {
-    (async () => {
-      const { session } = await getSession();
-      if (!session) {
-        navigate("/sign_in");
-        return;
-      }
-      setSessionUserId(session.user.id);
-      const { data: profile } = await getUserProfile(session.user.id);
-      setUserName(profile?.full_name || "Student");
-
-      await loadClasses(session.user.id);
-
-      const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
-      const mappedTasks = (tasks ?? []).map((t) => ({
-        id: t.id,
-        title: t.title,
-        subject: "Assignment",
-        dueDate: t.created_at
-          ? `Due ${new Date(t.created_at).toLocaleDateString()}`
-          : "—",
-        instructions: t.instruction || "No instructions provided.",
-        class_id: t.class_id,
-      }));
-      setAllTasks(mappedTasks);
-      setTodoTasks(mappedTasks);
-
-      const { data: graded } = await getStudentGradedEssays(session.user.id);
-      setGradedEssays(graded ?? []);
-    })();
-  }, [navigate]);
+    loadAllData();
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     if (selectedClass) {
@@ -225,7 +216,21 @@ export default function Student_Dashboard() {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadAllData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   return (

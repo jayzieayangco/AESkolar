@@ -39,6 +39,11 @@ ALTER TABLE assignment_tasks ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT 
 ALTER TABLE assignment_tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'::JSONB;
 ALTER TABLE assignment_tasks ADD COLUMN IF NOT EXISTS rubric_url TEXT;
 
+-- =============================================================================
+-- 3.5. Update documents table
+-- =============================================================================
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS score NUMERIC;
+
 CREATE INDEX IF NOT EXISTS idx_assignment_tasks_class_id ON assignment_tasks(class_id);
 CREATE INDEX IF NOT EXISTS idx_assignment_tasks_teacher_id ON assignment_tasks(teacher_id);
 

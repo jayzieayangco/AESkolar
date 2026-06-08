@@ -1,10 +1,15 @@
 import { useEffect, useRef, useCallback } from "react";
-import { getSession, saveDocument } from "../services/api.js";
+import {
+  getSession,
+  saveDocument,
+  getAssignmentTaskById,
+} from "../services/api.js";
 
 const LOCAL_DRAFT_PREFIX = "aeskolar_local_draft:";
 
 function getLocalDraftKey({ role, assignmentTaskId }) {
-  const taskPart = assignmentTaskId == null ? "general" : String(assignmentTaskId);
+  const taskPart =
+    assignmentTaskId == null ? "general" : String(assignmentTaskId);
   return `${LOCAL_DRAFT_PREFIX}${role}:${taskPart}`;
 }
 
@@ -48,14 +53,17 @@ export function useDebouncedDocumentSave(doc, options = {}) {
             role,
             assignmentTaskId: assignmentTaskId ?? null,
             updatedAt: new Date().toISOString(),
-          })
+          }),
         );
         console.debug("[Draft] saved locally", { key });
         lastSavedRef.current = { title: t, content: c };
         onStatusRef.current?.("saved");
       } catch (e) {
         console.warn("[Draft] local save failed", e);
-        onStatusRef.current?.("error", "Could not save locally. Please try again.");
+        onStatusRef.current?.(
+          "error",
+          "Could not save locally. Please try again.",
+        );
       }
       return documentIdRef.current;
     }
@@ -63,6 +71,12 @@ export function useDebouncedDocumentSave(doc, options = {}) {
     savingRef.current = true;
     onStatusRef.current?.("saving");
 
+    // Get class_id from assignment task if available
+    let classId = null;
+    if (assignmentTaskId) {
+      const { data: task } = await getAssignmentTaskById(assignmentTaskId);
+      classId = task?.class_id ?? null;
+    }
     const { data, error } = await saveDocument({
       userId: session.user.id,
       role,
@@ -70,6 +84,7 @@ export function useDebouncedDocumentSave(doc, options = {}) {
       content: c,
       documentId: documentIdRef.current,
       assignmentTaskId,
+      classId,
     });
 
     savingRef.current = false;
@@ -101,7 +116,8 @@ export function useDebouncedDocumentSave(doc, options = {}) {
 
     const t = title?.trim() ?? "";
     const c = content ?? "";
-    if (t === lastSavedRef.current.title && c === lastSavedRef.current.content) return;
+    if (t === lastSavedRef.current.title && c === lastSavedRef.current.content)
+      return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {

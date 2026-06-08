@@ -389,8 +389,15 @@ export async function fetchTeacherSubmissions(
   { status, classId } = {},
 ) {
   return safeQuery(async () => {
+    console.log(
+      "fetchTeacherSubmissions called with teacherId:",
+      teacherId,
+      "classId:",
+      classId,
+    );
     const { data: tasks, error: taskErr } =
       await fetchTeacherAssignmentTasks(teacherId);
+    console.log("teacher tasks:", tasks, "error:", taskErr);
     if (taskErr) return { data: null, error: taskErr };
 
     let filteredTasks = tasks ?? [];
@@ -399,8 +406,10 @@ export async function fetchTeacherSubmissions(
         (t) => t.class_id === classId || t.class_id === null,
       );
     }
+    console.log("filtered tasks for submissions:", filteredTasks);
 
     const taskIds = filteredTasks.map((t) => t.id);
+    console.log("task ids:", taskIds);
     if (!taskIds.length) return { data: [], error: null };
 
     let query = supabase
@@ -415,7 +424,9 @@ export async function fetchTeacherSubmissions(
       query = query.in("status", ["submitted", "scored", "graded"]);
     }
 
-    return query.order("created_at", { ascending: false });
+    const result = await query.order("created_at", { ascending: false });
+    console.log("submissions query result:", result);
+    return result;
   }, "documents.fetchTeacherSubmissions");
 }
 
@@ -430,7 +441,7 @@ export async function getAssignmentTaskById(id) {
 export async function createAssignmentTask(task) {
   return safeQuery(
     async () =>
-      supabase.from("assignment_tasks").insert(task).select().single(),
+      supabase.from("assignment_tasks").insert(task).select().maybeSingle(),
     "assignment_tasks.create",
   );
 }
@@ -443,7 +454,7 @@ export async function updateAssignmentTask(id, updates) {
         .update(updates)
         .eq("id", id)
         .select()
-        .single(),
+        .maybeSingle(),
     "assignment_tasks.update",
   );
 }
@@ -496,7 +507,7 @@ export async function createClass(classRow) {
           class_code: generateClassCode(),
         })
         .select()
-        .single(),
+        .maybeSingle(),
     "classes.create",
   );
 }
@@ -504,7 +515,12 @@ export async function createClass(classRow) {
 export async function updateClass(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("classes").update(updates).eq("id", id).select().single(),
+      supabase
+        .from("classes")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .maybeSingle(),
     "classes.update",
   );
 }
@@ -535,7 +551,7 @@ export async function joinClass(studentId, classId) {
         .from("student_classes")
         .insert({ student_id: studentId, class_id: classId })
         .select()
-        .single(),
+        .maybeSingle(),
     "studentClasses.join",
   );
 }
@@ -834,7 +850,7 @@ export async function createDocument(document) {
   return safeQuery(async () => {
     const seed = await verifyDatabaseSchema();
     if (seed.error) return { data: null, error: seed.error };
-    return supabase.from("documents").insert(document).select().single();
+    return supabase.from("documents").insert(document).select().maybeSingle();
   }, "documents.create");
 }
 
@@ -847,7 +863,7 @@ export async function updateDocument(id, updates) {
       .update(updates)
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
   }, "documents.update");
 }
 
@@ -1033,7 +1049,7 @@ export async function getEvaluationById(id) {
 export async function createEvaluation(evaluation) {
   return safeQuery(
     async () =>
-      supabase.from("evaluations").insert(evaluation).select().single(),
+      supabase.from("evaluations").insert(evaluation).select().maybeSingle(),
     "evaluations.create",
   );
 }
@@ -1116,6 +1132,9 @@ export async function submitEvaluation({
       await createEvaluation(evaluationPayload);
 
     if (evalError) return { data: null, error: evalError };
+
+    // Update the essay document status to "scored"
+    await updateDocument(essayId, { status: "scored" });
 
     if (strengths || weaknesses || feedbackSuggestions) {
       const { data: feedback, error: fbError } = await createFeedback({
@@ -1213,7 +1232,8 @@ export async function getFeedbackById(id) {
 
 export async function createFeedback(feedback) {
   return safeQuery(
-    async () => supabase.from("feedback").insert(feedback).select().single(),
+    async () =>
+      supabase.from("feedback").insert(feedback).select().maybeSingle(),
     "feedback.create",
   );
 }
@@ -1221,7 +1241,12 @@ export async function createFeedback(feedback) {
 export async function updateFeedback(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("feedback").update(updates).eq("id", id).select().single(),
+      supabase
+        .from("feedback")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .maybeSingle(),
     "feedback.update",
   );
 }
@@ -1256,7 +1281,7 @@ export async function getRubricById(id) {
 
 export async function createRubric(rubric) {
   return safeQuery(
-    async () => supabase.from("rubrics").insert(rubric).select().single(),
+    async () => supabase.from("rubrics").insert(rubric).select().maybeSingle(),
     "rubrics.create",
   );
 }
@@ -1277,7 +1302,12 @@ export async function createRubricWithValidation(rubric) {
 export async function updateRubric(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("rubrics").update(updates).eq("id", id).select().single(),
+      supabase
+        .from("rubrics")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .maybeSingle(),
     "rubrics.update",
   );
 }
@@ -1306,7 +1336,8 @@ export async function getCriteriaById(id) {
 
 export async function createCriteria(criteria) {
   return safeQuery(
-    async () => supabase.from("criteria").insert(criteria).select().single(),
+    async () =>
+      supabase.from("criteria").insert(criteria).select().maybeSingle(),
     "criteria.create",
   );
 }
@@ -1314,7 +1345,12 @@ export async function createCriteria(criteria) {
 export async function updateCriteria(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("criteria").update(updates).eq("id", id).select().single(),
+      supabase
+        .from("criteria")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .maybeSingle(),
     "criteria.update",
   );
 }
@@ -1336,7 +1372,8 @@ export async function listLanguages() {
 
 export async function createLanguage(language) {
   return safeQuery(
-    async () => supabase.from("languages").insert(language).select().single(),
+    async () =>
+      supabase.from("languages").insert(language).select().maybeSingle(),
     "languages.create",
   );
 }
@@ -1344,7 +1381,12 @@ export async function createLanguage(language) {
 export async function updateLanguage(id, updates) {
   return safeQuery(
     async () =>
-      supabase.from("languages").update(updates).eq("id", id).select().single(),
+      supabase
+        .from("languages")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .maybeSingle(),
     "languages.update",
   );
 }
@@ -1370,7 +1412,7 @@ export async function listScoreDetails(evaluationId) {
 export async function createScoreDetail(scoreDetail) {
   return safeQuery(
     async () =>
-      supabase.from("score_details").insert(scoreDetail).select().single(),
+      supabase.from("score_details").insert(scoreDetail).select().maybeSingle(),
     "score_details.create",
   );
 }
@@ -1383,7 +1425,7 @@ export async function updateScoreDetail(id, updates) {
         .update(updates)
         .eq("id", id)
         .select()
-        .single(),
+        .maybeSingle(),
     "score_details.update",
   );
 }
@@ -1540,9 +1582,15 @@ export async function getProfileAvatarUrl(userId) {
  * Release grade to student: marks essay as graded (visible on student dashboard).
  */
 export async function releaseScore(evaluationId) {
+  console.log("releaseScore called with evaluationId:", evaluationId);
   try {
+    console.log("Calling getEvaluationById...");
     const { data: evaluation, error: evalError } =
       await getEvaluationById(evaluationId);
+    console.log("getEvaluationById result:", {
+      data: evaluation,
+      error: evalError,
+    });
     if (evalError) return { data: null, error: evalError };
     if (!evaluation?.essay_id) {
       return {
@@ -1550,23 +1598,35 @@ export async function releaseScore(evaluationId) {
         error: new Error("Evaluation has no linked essay."),
       };
     }
+    console.log("Found evaluation:", evaluation);
 
+    console.log("Calling updateEvaluation to set status to released...");
     const { data: releasedEval, error: releaseError } = await updateEvaluation(
       evaluationId,
       {
         status: "released",
       },
     );
+    console.log("updateEvaluation result:", {
+      data: releasedEval,
+      error: releaseError,
+    });
     if (releaseError) return { data: null, error: releaseError };
 
+    console.log(
+      "Calling updateDocument to set status to graded for essay_id:",
+      evaluation.essay_id,
+    );
     const { data: doc, error: docError } = await updateDocument(
       evaluation.essay_id,
       {
         status: "graded",
       },
     );
+    console.log("updateDocument result:", { data: doc, error: docError });
     if (docError) return { data: null, error: docError };
 
+    console.log("releaseScore returning successfully!");
     return {
       data: { evaluation: releasedEval ?? evaluation, document: doc },
       error: null,

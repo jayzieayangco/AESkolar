@@ -87,6 +87,9 @@ CREATE POLICY "documents_insert_own" ON public.documents FOR INSERT TO authentic
   WITH CHECK (user_id = auth.uid());
 CREATE POLICY "documents_update_own" ON public.documents FOR UPDATE TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "documents_update_teacher" ON public.documents FOR UPDATE TO authenticated
+  USING (role = 'student')
+  WITH CHECK (role = 'student');
 CREATE POLICY "documents_delete_own" ON public.documents FOR DELETE TO authenticated
   USING (user_id = auth.uid());
 CREATE POLICY "documents_select_teacher_class" ON public.documents FOR SELECT TO authenticated
