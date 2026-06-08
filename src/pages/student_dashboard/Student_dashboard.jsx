@@ -48,8 +48,8 @@ export default function Student_Dashboard() {
           taskId: selectedTask.id,
           title: selectedTask.title,
           subject: selectedTask.subject,
-          instructions: selectedTask.instructions
-        }
+          instructions: selectedTask.instructions,
+        },
       });
     }
   };
@@ -80,9 +80,11 @@ export default function Student_Dashboard() {
           id: t.id,
           title: t.title,
           subject: "Assignment",
-          dueDate: t.created_at ? `Due ${new Date(t.created_at).toLocaleDateString()}` : "—",
+          dueDate: t.created_at
+            ? `Due ${new Date(t.created_at).toLocaleDateString()}`
+            : "—",
           instructions: t.instruction || "No instructions provided.",
-        }))
+        })),
       );
     } catch (err) {
       alert(err.message || "Submit failed.");
@@ -138,9 +140,11 @@ export default function Student_Dashboard() {
           id: t.id,
           title: t.title,
           subject: "Assignment",
-          dueDate: t.created_at ? `Due ${new Date(t.created_at).toLocaleDateString()}` : "—",
+          dueDate: t.created_at
+            ? `Due ${new Date(t.created_at).toLocaleDateString()}`
+            : "—",
           instructions: t.instruction || "No instructions provided.",
-        }))
+        })),
       );
       const { data: graded } = await getStudentGradedEssays(session.user.id);
       setGradedEssays(graded ?? []);
@@ -163,16 +167,18 @@ export default function Student_Dashboard() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
-      
       <AppPageHeader showSearch={false} />
 
       {/* MAIN CONTAINER LAYOUT */}
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
-        
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
+            <SidebarNav
+              items={sidebarItems}
+              activeTab={activeTab}
+              onNavigate={handleNavigation}
+            />
           </div>
 
           <SidebarProfileRow />
@@ -180,11 +186,9 @@ export default function Student_Dashboard() {
 
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto box-border pr-2 pb-6">
-          
           {/* DETAILED OVERLAY PANEL FOR CLICKED TO-DO TASKS */}
           {selectedTask ? (
             <div className="flex flex-col w-full relative animate-fadeIn pr-4">
-              
               {/* Core Headings Frame */}
               <div className="flex items-start justify-between w-full">
                 <div className="flex flex-col">
@@ -195,9 +199,9 @@ export default function Student_Dashboard() {
                     Here's what's happening with your tasks.
                   </p>
                 </div>
-                
+
                 {/* ✕ Button placed OUTSIDE the card layout container */}
-                <button 
+                <button
                   onClick={() => setSelectedTask(null)}
                   className="text-slate-700 hover:text-slate-900 font-bold text-xl mt-4 mr-2 cursor-pointer transition-colors"
                 >
@@ -209,8 +213,12 @@ export default function Student_Dashboard() {
               <div className="bg-white border border-[#cbd5e1]/50 rounded-2xl shadow-sm p-8 mt-6 flex flex-col min-h-[300px]">
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-4">
                   <div className="flex flex-col">
-                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight">{selectedTask.title}</h2>
-                    <span className="text-base font-medium text-slate-500 mt-0.5">{selectedTask.subject}</span>
+                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
+                      {selectedTask.title}
+                    </h2>
+                    <span className="text-base font-medium text-slate-500 mt-0.5">
+                      {selectedTask.subject}
+                    </span>
                   </div>
                   <span className="text-sm font-semibold text-slate-500">
                     {selectedTask.dueDate}
@@ -218,7 +226,9 @@ export default function Student_Dashboard() {
                 </div>
 
                 <div className="mt-6 flex flex-col gap-2">
-                  <span className="text-sm font-bold text-slate-400 tracking-wide uppercase">Instructions:</span>
+                  <span className="text-sm font-bold text-slate-400 tracking-wide uppercase">
+                    Instructions:
+                  </span>
                   <p className="text-base text-slate-600 leading-relaxed font-normal">
                     {selectedTask.instructions}
                   </p>
@@ -227,7 +237,7 @@ export default function Student_Dashboard() {
 
               {/* Open Editor & Submit Action buttons */}
               <div className="flex items-center justify-end gap-4 mt-6">
-                <button 
+                <button
                   onClick={handleOpenEditor}
                   className="bg-white border border-slate-200 text-slate-700 font-medium py-2 px-6 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all duration-150 cursor-pointer"
                 >
@@ -242,9 +252,8 @@ export default function Student_Dashboard() {
                 </button>
               </div>
             </div>
-
-          /* DETAILED OVERLAY PANEL FOR CLICKED RECENT GRADED ESSAYS */
-          ) : selectedEssay ? (
+          ) : /* DETAILED OVERLAY PANEL FOR CLICKED RECENT GRADED ESSAYS */
+          selectedEssay ? (
             <div className="flex flex-col gap-4 animate-fadeIn pr-4 relative">
               <div className="flex items-start justify-between w-full">
                 <div className="flex flex-col">
@@ -252,11 +261,13 @@ export default function Student_Dashboard() {
                     {selectedEssay.title}
                   </h1>
                   <p className="text-sm font-medium text-slate-600 mt-2 ml-0.5">
-                    {selectedEssay.subject} . Submitted: {selectedEssay.submittedDate} . {selectedEssay.wordCount} words
+                    {selectedEssay.subject} . Submitted:{" "}
+                    {selectedEssay.submittedDate} . {selectedEssay.wordCount}{" "}
+                    words
                   </p>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={() => setSelectedEssay(null)}
                   className="text-slate-700 hover:text-slate-900 font-bold text-xl mt-4 mr-2 cursor-pointer transition-colors"
                 >
@@ -271,21 +282,27 @@ export default function Student_Dashboard() {
 
                 <div className="flex flex-col gap-6">
                   <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm min-h-[120px]">
-                    <h3 className="text-xl font-bold text-slate-400 tracking-tight mb-2">Score</h3>
-                    <span className="text-4xl font-extrabold text-emerald-600">{selectedEssay.score}</span>
+                    <h3 className="text-xl font-bold text-slate-400 tracking-tight mb-2">
+                      Score
+                    </h3>
+                    <span className="text-4xl font-extrabold text-emerald-600">
+                      {selectedEssay.score}
+                    </span>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm min-h-[250px]">
-                    <h3 className="text-xl font-bold text-slate-400 tracking-tight mb-2">Feedback</h3>
+                    <h3 className="text-xl font-bold text-slate-400 tracking-tight mb-2">
+                      Feedback
+                    </h3>
                     <p className="text-slate-600 font-normal text-sm leading-relaxed">
-                      {selectedEssay.feedback || "No feedback structural comments assigned yet."}
+                      {selectedEssay.feedback ||
+                        "No feedback structural comments assigned yet."}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-
-          /* BASE DASHBOARD LAYOUT GRID ROOT VIEW */
-          ) : selectedClass ? (
+          ) : /* BASE DASHBOARD LAYOUT GRID ROOT VIEW */
+          selectedClass ? (
             <>
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -306,8 +323,10 @@ export default function Student_Dashboard() {
 
               {/* TO-DO ASSIGNMENT BLOCK */}
               <div className="flex flex-col gap-2 w-full">
-                <h3 className="text-xl font-bold text-slate-700 tracking-tight">To do</h3>
-                
+                <h3 className="text-xl font-bold text-slate-700 tracking-tight">
+                  To do
+                </h3>
+
                 {todoTasks.length === 0 ? (
                   <div className="bg-white border border-[#cbd5e1]/50 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col min-h-[140px] items-center justify-center p-4 text-slate-400 italic text-sm">
                     No tasks assigned yet.
@@ -315,15 +334,19 @@ export default function Student_Dashboard() {
                 ) : (
                   <div className="flex flex-wrap gap-4">
                     {todoTasks.map((task) => (
-                      <div 
+                      <div
                         key={task.id}
                         onClick={() => setSelectedTask(task)}
                         className="bg-white border border-[#cbd5e1]/50 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col cursor-pointer hover:border-slate-400 transition duration-150 w-full sm:w-[calc(50%-0.5rem)] max-w-md"
                       >
                         <div className="flex items-start justify-between p-4 border-b border-slate-100 bg-slate-50/30">
                           <div className="flex flex-col">
-                            <span className="text-xl font-bold text-slate-800 tracking-tight">{task.title}</span>
-                            <span className="text-sm font-medium text-slate-500 mt-0.5">{task.subject}</span>
+                            <span className="text-xl font-bold text-slate-800 tracking-tight">
+                              {task.title}
+                            </span>
+                            <span className="text-sm font-medium text-slate-500 mt-0.5">
+                              {task.subject}
+                            </span>
                           </div>
                           <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
                             {(task.dueDate || "").split(",")[0]}
@@ -342,8 +365,10 @@ export default function Student_Dashboard() {
 
               {/* RECENT GRADED ESSAYS GRID SYSTEM TABLE */}
               <div className="flex flex-col gap-2 w-full mt-2">
-                <h3 className="text-xl font-bold text-slate-700 tracking-tight">Recent Graded Essay</h3>
-                
+                <h3 className="text-xl font-bold text-slate-700 tracking-tight">
+                  Recent Graded Essay
+                </h3>
+
                 <div className="w-full bg-white border border-[#cbd5e1]/50 rounded-xl shadow-sm overflow-hidden max-h-[220px] flex flex-col">
                   <div className="grid grid-cols-3 border-b border-[#cbd5e1]/40 bg-slate-50/50 text-slate-500 font-semibold text-sm py-3.5 px-6 shrink-0">
                     <div>Assignment</div>
@@ -358,14 +383,20 @@ export default function Student_Dashboard() {
                   ) : (
                     <div className="divide-y divide-slate-100 overflow-y-auto flex-1 min-h-0">
                       {gradedEssays.map((essay) => (
-                        <div 
+                        <div
                           key={essay.id}
                           onClick={() => setSelectedEssay(essay)}
                           className="grid grid-cols-3 items-center text-slate-700 font-medium text-base py-4 px-6 bg-white cursor-pointer hover:bg-slate-50/80 transition-colors duration-150"
                         >
-                          <div className="text-slate-800 font-semibold">{essay.title}</div>
-                          <div className="text-center font-bold text-emerald-600">{essay.score}</div>
-                          <div className="text-right text-sm text-slate-500">{essay.gradedDate}</div>
+                          <div className="text-slate-800 font-semibold">
+                            {essay.title}
+                          </div>
+                          <div className="text-center font-bold text-emerald-600">
+                            {essay.score}
+                          </div>
+                          <div className="text-right text-sm text-slate-500">
+                            {essay.gradedDate}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -394,7 +425,9 @@ export default function Student_Dashboard() {
 
               {classes.length === 0 ? (
                 <div className="w-full h-160 flex flex-col items-center justify-center bg-[#c5ecff] rounded-xl text-[#1e293b]">
-                  <h2 className="text-4xl font-semibold tracking-wide">No Classes</h2>
+                  <h2 className="text-4xl font-semibold tracking-wide">
+                    No Classes
+                  </h2>
                   <p className="mt-2 text-sm font-medium text-slate-700">
                     Classes you have will display here
                   </p>
@@ -425,7 +458,9 @@ export default function Student_Dashboard() {
                         </div>
                         <div className="flex-grow p-4">
                           <p className="text-sm text-slate-500">
-                            {c.teacherName ? `Teacher: ${c.teacherName}` : "Teacher"}
+                            {c.teacherName
+                              ? `Teacher: ${c.teacherName}`
+                              : "Teacher"}
                           </p>
                         </div>
                       </div>
@@ -436,7 +471,9 @@ export default function Student_Dashboard() {
                           onClick={(event) => {
                             event.stopPropagation();
                             setActiveMenuId(
-                              activeMenuId === `class-${c.id}` ? null : `class-${c.id}`,
+                              activeMenuId === `class-${c.id}`
+                                ? null
+                                : `class-${c.id}`,
                             );
                           }}
                           className="text-slate-600 font-bold text-lg hover:text-slate-900 px-2"
@@ -472,7 +509,9 @@ export default function Student_Dashboard() {
               <div className="w-full max-w-md bg-white rounded-[28px] shadow-2xl border border-slate-200 p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Join Class</h2>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      Join Class
+                    </h2>
                     <p className="mt-2 text-sm text-slate-500">
                       Ask your teacher for the class code, then enter it here.
                     </p>
@@ -484,7 +523,9 @@ export default function Student_Dashboard() {
                     ✕
                   </button>
                 </div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Class Code</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Class Code
+                </label>
                 <input
                   value={classCode}
                   onChange={(event) => setClassCode(event.target.value)}
@@ -508,7 +549,6 @@ export default function Student_Dashboard() {
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>
