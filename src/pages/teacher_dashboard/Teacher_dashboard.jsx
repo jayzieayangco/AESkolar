@@ -510,7 +510,7 @@ export default function Teacher_Dashboard() {
                                 state: { essayId: row.id },
                               })
                             }
-                            className="border-b hover:bg-slate-50 cursor-pointer"
+                            className="border-b border-[#cbd5e1] hover:bg-slate-50 cursor-pointer"
                           >
                             <td className="py-3 px-6 text-sm text-slate-700">
                               {row.studentName}
