@@ -327,7 +327,7 @@ export default function Teacher_Grade_Essay() {
                 )}
               </div>
 
-              <div className="border border-slate-100 rounded-lg p-4 flex flex-col min-h-[500px] max-h-[calc(100vh-150px)]">
+              <div className="border border-slate-100 rounded-lg p-4 flex flex-col">
                 {selected ? (
                   <>
                     <div className="flex items-start justify-between gap-2 mb-2">
