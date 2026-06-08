@@ -156,13 +156,13 @@ export default function DocumentEditor({
       </div>
 
       <div className="w-[340px] md:w-[380px] h-full flex flex-col gap-4">
-        <div className="flex-1 bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
+        <div className="h-[220px] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1e293b]">Score</h2>
             {isGrading && <span className="text-xs font-medium text-slate-500">Grading…</span>}
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">
+          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50 overflow-hidden">
             {aiMessage ? (
               <span className="text-sm text-red-600 text-center px-4">{aiMessage}</span>
             ) : liveGrade ? (
@@ -193,7 +193,7 @@ export default function DocumentEditor({
           </div>
         </div>
 
-        <div className="min-h-[320px] flex-[1.2] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
+        <div className="flex-1 min-h-[280px] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
           <h2 className="text-xl font-semibold text-[#1e293b] mb-3">Suggestions</h2>
           <div className="flex-1 overflow-y-auto text-sm text-[#475569] leading-relaxed pr-1">
             {liveGrade?.suggestions?.length ? (

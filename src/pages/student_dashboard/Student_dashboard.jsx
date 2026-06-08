@@ -7,6 +7,10 @@ import {
   getStudentGradedEssays,
   submitDocument,
   getDocuments,
+  getClassByCode,
+  joinClass,
+  unenrollFromClass,
+  getStudentClasses,
 } from "../../services/api.js";
 import AppPageHeader from "../../components/AppPageHeader.jsx";
 import SidebarNav from "../../components/SidebarNav.jsx";
@@ -93,37 +97,65 @@ export default function Student_Dashboard() {
     }
   };
 
+  const [sessionUserId, setSessionUserId] = useState(null);
+
+  const loadClasses = async (userId) => {
+    const { data } = await getStudentClasses(userId);
+    if (data) {
+      const mappedClasses = data.map((sc) => ({
+        ...sc.class,
+        id: sc.class.id,
+        teacherName: sc.class.teacher?.full_name || "Teacher",
+      }));
+      setClasses(mappedClasses);
+    }
+  };
+
   const openJoinModal = () => {
     setClassCode("");
     setShowJoinModal(true);
   };
 
-  const handleJoinClass = () => {
+  const handleJoinClass = async () => {
     if (!classCode.trim()) {
       alert("Please enter a class code before joining.");
       return;
     }
+    if (!sessionUserId) return;
 
-    const newClass = {
-      id: Date.now(),
-      class_name: "Sample Class A",
-      section: "Juan Dela Cruz",
-      teacherName: "Ms. Reyes",
-    };
+    const { data: cls, error } = await getClassByCode(
+      classCode.trim().toUpperCase(),
+    );
+    if (error || !cls) {
+      alert("Invalid class code. Please check and try again.");
+      return;
+    }
 
-    setClasses((prev) => [...prev, newClass]);
+    const { error: joinError } = await joinClass(sessionUserId, cls.id);
+    if (joinError) {
+      alert("You're already in this class or failed to join.");
+      return;
+    }
+
+    await loadClasses(sessionUserId);
     setShowJoinModal(false);
     setClassCode("");
   };
 
-  const handleUnenroll = (cls) => {
+  const handleUnenroll = async (cls) => {
     if (!window.confirm(`Unenroll from ${cls.class_name}?`)) return;
-    setClasses((prev) => prev.filter((c) => c.id !== cls.id));
+    if (!sessionUserId) return;
+
+    await unenrollFromClass(sessionUserId, cls.id);
+    await loadClasses(sessionUserId);
+
     if (selectedClass?.id === cls.id) {
       setSelectedClass(null);
     }
     setActiveMenuId(null);
   };
+
+  const [allTasks, setAllTasks] = useState([]); // Store all tasks to filter later
 
   useEffect(() => {
     (async () => {
@@ -132,24 +164,38 @@ export default function Student_Dashboard() {
         navigate("/sign_in");
         return;
       }
+      setSessionUserId(session.user.id);
       const { data: profile } = await getUserProfile(session.user.id);
       setUserName(profile?.full_name || "Student");
+
+      await loadClasses(session.user.id);
+
       const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
-      setTodoTasks(
-        (tasks ?? []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          subject: "Assignment",
-          dueDate: t.created_at
-            ? `Due ${new Date(t.created_at).toLocaleDateString()}`
-            : "—",
-          instructions: t.instruction || "No instructions provided.",
-        })),
-      );
+      const mappedTasks = (tasks ?? []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        subject: "Assignment",
+        dueDate: t.created_at
+          ? `Due ${new Date(t.created_at).toLocaleDateString()}`
+          : "—",
+        instructions: t.instruction || "No instructions provided.",
+        class_id: t.class_id,
+      }));
+      setAllTasks(mappedTasks);
+      setTodoTasks(mappedTasks);
+
       const { data: graded } = await getStudentGradedEssays(session.user.id);
       setGradedEssays(graded ?? []);
     })();
   }, [navigate]);
+
+  useEffect(() => {
+    if (selectedClass) {
+      setTodoTasks(allTasks.filter(task => task.class_id === selectedClass.id || task.class_id === null));
+    } else {
+      setTodoTasks(allTasks);
+    }
+  }, [selectedClass, allTasks]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

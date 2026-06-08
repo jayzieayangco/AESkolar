@@ -110,6 +110,28 @@ export function detectLanguage(text) {
   return "english";
 }
 
+/** Check if text is in valid language (English or Filipino) */
+export function isValidLanguage(text) {
+  const lang = detectLanguage(text);
+  return lang === "english" || lang === "filipino";
+}
+
+/** Check if essay is relevant to the prompt */
+function checkContextRelevance(text, prompt) {
+  if (!prompt || !text) return true;
+
+  const textLower = text.toLowerCase();
+  const promptLower = prompt.toLowerCase();
+  const promptWords = promptLower
+    .split(/\s+/)
+    .filter((word) => word.length > 3);
+
+  if (promptWords.length === 0) return true;
+
+  const matches = promptWords.filter((word) => textLower.includes(word)).length;
+  return matches >= Math.min(2, promptWords.length * 0.3);
+}
+
 function normalizeRubric(rubricData) {
   if (!rubricData) {
     return {
@@ -290,21 +312,23 @@ function scoreCriterion(criterion, essayContent) {
 
 /** Heuristic fallback grader (runs fully in-browser). */
 
-export function gradeEssay(essayContent, rubricData) {
+export function gradeEssay(essayContent, rubricData, prompt = "") {
   const rubric = normalizeRubric(rubricData);
-
   const criteria = rubric.criteria ?? [];
-
   const rawRows = (
     criteria.length ? criteria : normalizeRubric(null).criteria
   ).map((c) => scoreCriterion(c, essayContent));
 
-  const { rubricScores, totalScore, maxScore } = reconcileRubricScores(rawRows);
+  let { rubricScores, totalScore, maxScore } = reconcileRubricScores(rawRows);
+
+  // Check context relevance and adjust score
+  const isRelevant = checkContextRelevance(essayContent, prompt);
+  if (!isRelevant) {
+    totalScore = Math.max(0, Math.min(4, totalScore)); // Cap score at 4/10 if not relevant
+  }
 
   const strengths = [];
-
   const weaknesses = [];
-
   const suggestions = [];
 
   for (const row of rawRows) {
@@ -313,7 +337,26 @@ export function gradeEssay(essayContent, rubricData) {
     suggestions.push(...(row.suggestions ?? []));
   }
 
+  if (!isRelevant && prompt) {
+    weaknesses.push("Your essay doesn't seem to be about the assigned topic.");
+    suggestions.push(
+      "Try to focus your writing on the specific topic or question you were assigned.",
+    );
+  }
+
   const uniq = (arr) => Array.from(new Set(arr)).slice(0, 6);
+
+  let finalSuggestions = enrichConstructiveSuggestions(
+    uniq(suggestions),
+    rubricScores,
+  );
+
+  // Ensure there's always at least one suggestion
+  if (finalSuggestions.length === 0) {
+    finalSuggestions = [
+      "Great job! Keep practicing your writing skills to improve even more.",
+    ];
+  }
 
   return {
     totalScore,
@@ -321,7 +364,7 @@ export function gradeEssay(essayContent, rubricData) {
     rubricScores,
     strengths: uniq(strengths),
     weaknesses: uniq(weaknesses),
-    suggestions: enrichConstructiveSuggestions(uniq(suggestions), rubricScores),
+    suggestions: finalSuggestions,
     metadata: { engine: "heuristic-fallback" },
   };
 }
@@ -450,9 +493,30 @@ async function callMlEngine({ content, rubric, language, prompt }) {
 export async function gradeEssayWithAI(input, rubricData) {
   const payload = normalizePayload(input, rubricData);
   const text = payload.content.trim();
+  const prompt = payload.prompt || "";
 
   if (!text) {
-    return gradeEssay("", payload.rubric);
+    const result = gradeEssay("", payload.rubric);
+    return {
+      ...result,
+      suggestions: ["Start writing your essay to get personalized feedback!"],
+    };
+  }
+
+  if (!isValidLanguage(text)) {
+    return {
+      totalScore: 0,
+      maxScore: 10,
+      rubricScores: reconcileRubricScores([]).rubricScores,
+      strengths: [],
+      weaknesses: [],
+      suggestions: [
+        "Sorry, we can only grade essays in English or Filipino at this time.",
+      ],
+      errorMessage:
+        "Unrecognized language. Please write in English or Filipino.",
+      metadata: { engine: "rejected", reason: "invalid_language" },
+    };
   }
 
   if (isGibberishText(text)) {
@@ -462,7 +526,9 @@ export async function gradeEssayWithAI(input, rubricData) {
       rubricScores: reconcileRubricScores([]).rubricScores,
       strengths: [],
       weaknesses: [],
-      suggestions: [],
+      suggestions: [
+        "Please write meaningful text to receive feedback and a grade.",
+      ],
       errorMessage: GIBBERISH_MESSAGE,
       metadata: { engine: "rejected", reason: "gibberish" },
     };
@@ -475,7 +541,9 @@ export async function gradeEssayWithAI(input, rubricData) {
       rubricScores: reconcileRubricScores([]).rubricScores,
       strengths: [],
       weaknesses: [],
-      suggestions: [],
+      suggestions: [
+        "Write a few more sentences so we can give you meaningful feedback!",
+      ],
       errorMessage: ESSAY_TOO_SHORT_MESSAGE,
       metadata: { engine: "rejected", reason: "too_short" },
     };
@@ -487,17 +555,22 @@ export async function gradeEssayWithAI(input, rubricData) {
 
     console.debug("[AI] ML success", {
       totalScore: result.totalScore,
-
       engine: result.metadata?.engine,
-
       language: result.metadata?.language,
     });
+
+    // Ensure there are always suggestions
+    if (!result.suggestions || result.suggestions.length === 0) {
+      result.suggestions = [
+        "Great work! Keep practicing to make your writing even better.",
+      ];
+    }
 
     return result;
   } catch (err) {
     console.warn("[AI] ML engine unavailable — heuristic fallback", err);
 
-    return gradeEssay(payload.content, payload.rubric);
+    return gradeEssay(payload.content, payload.rubric, prompt);
   }
 }
 

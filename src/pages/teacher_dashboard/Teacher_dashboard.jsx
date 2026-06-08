@@ -64,23 +64,32 @@ export default function Teacher_Dashboard() {
     }
     const { data: profile } = await getUserProfile(session.user.id);
     setUserName(profile?.full_name || "Teacher");
+
+    // Use selectedClass for submissions
+    const params = {
+      status: "submitted",
+      ...(selectedClass?.id && { classId: selectedClass.id }),
+    };
     const { data: pendingDocs } = await fetchTeacherSubmissions(
       session.user.id,
-      {
-        status: "submitted",
-      },
+      params,
     );
+
+    const gradedParams = {
+      status: "graded",
+      ...(selectedClass?.id && { classId: selectedClass.id }),
+    };
     const { data: gradedDocs } = await fetchTeacherSubmissions(
       session.user.id,
-      {
-        status: "graded",
-      },
+      gradedParams,
     );
+
     setStats({
       graded: gradedDocs?.length ?? 0,
       pending: pendingDocs?.length ?? 0,
       flagged: 0,
     });
+
     const rows = await Promise.all(
       (pendingDocs ?? []).map(async (doc) => {
         const { data: student } = await getUserProfile(doc.user_id);
@@ -88,21 +97,31 @@ export default function Teacher_Dashboard() {
           id: doc.id,
           studentName: student?.full_name ?? "Student",
           title: doc.title,
-          score: "—",
+          score: doc.score ?? "—",
           status: formatDocumentStatus(doc.status),
         };
       }),
     );
     setSubmissions(rows);
+
     const { data: tasks } = await fetchTeacherAssignmentTasks(session.user.id);
     setTeacherTasks(tasks ?? []);
+
     const { data: cls } = await listClasses({ teacherId: session.user.id });
     setClasses(cls ?? []);
   };
 
   useEffect(() => {
+    // Initial load
     loadData();
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    // Reload when selected class changes
+    if (selectedClass) {
+      loadData();
+    }
+  }, [selectedClass]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -202,16 +221,9 @@ export default function Teacher_Dashboard() {
   };
 
   const handleEditTask = async (task) => {
-    const title = window.prompt("Task title:", task.title);
-    if (!title) return;
-    const instruction =
-      window.prompt("Instructions:", task.instruction || "") ?? "";
-    const { error } = await updateAssignmentTask(task.id, {
-      title,
-      instruction,
+    navigate("/teacher_create_task", {
+      state: { selectedClass, editingTask: task },
     });
-    if (error) alert(error.message);
-    else loadData();
   };
 
   const handleDeleteTask = async (task) => {
@@ -219,6 +231,17 @@ export default function Teacher_Dashboard() {
     const { error } = await deleteAssignmentTask(task.id);
     if (error) alert(error.message);
     else loadData();
+  };
+
+  const handleCopyClassCode = (classCode) => {
+    navigator.clipboard
+      .writeText(classCode)
+      .then(() => {
+        alert("Class code copied to clipboard!");
+      })
+      .catch(() => {
+        alert("Failed to copy class code");
+      });
   };
 
   const handleExportGrades = () => {
@@ -295,10 +318,15 @@ export default function Teacher_Dashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {classes.map((c) => (
                     // 1. Removed overflow-hidden from the card container to allow menu to render
-                    <div key={c.id} className="w-56 h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative">
-                      
+                    <div
+                      key={c.id}
+                      className="w-56 h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative"
+                    >
                       {/* Main Clickable Area */}
-                      <div onClick={() => setSelectedClass(c)} className="flex flex-col flex-grow">
+                      <div
+                        onClick={() => setSelectedClass(c)}
+                        className="flex flex-col flex-grow"
+                      >
                         <div className="bg-[#7ba4cc] p-4 h-24 flex flex-col justify-end rounded-t-xl">
                           <h3 className="font-bold text-lg text-white truncate">
                             {c.class_name || c.name}
@@ -315,7 +343,11 @@ export default function Teacher_Dashboard() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveMenuId(activeMenuId === `class-${c.id}` ? null : `class-${c.id}`);
+                            setActiveMenuId(
+                              activeMenuId === `class-${c.id}`
+                                ? null
+                                : `class-${c.id}`,
+                            );
                           }}
                           className="text-slate-600 font-bold text-lg hover:text-black px-2"
                         >
@@ -324,22 +356,46 @@ export default function Teacher_Dashboard() {
 
                         {/* 2. Changed to fixed positioning and added a z-index to ensure it renders on top */}
                         {activeMenuId === `class-${c.id}` && (
-                          <div 
-                            className="fixed z-[100] mt-8 w-28 bg-white border border-slate-200 rounded-lg shadow-xl cursor-pointer flex flex-col"
+                          <div
+                            className="fixed z-[100] mt-8 w-36 bg-white border border-slate-200 rounded-lg shadow-xl cursor-pointer flex flex-col"
                             style={{
                               // This calculates the position based on the trigger button
-                              top: document.querySelector(`[data-id="btn-${c.id}"]`)?.getBoundingClientRect().bottom + 'px',
-                              left: document.querySelector(`[data-id="btn-${c.id}"]`)?.getBoundingClientRect().left + 'px'
+                              top:
+                                document
+                                  .querySelector(`[data-id="btn-${c.id}"]`)
+                                  ?.getBoundingClientRect().bottom + "px",
+                              left:
+                                document
+                                  .querySelector(`[data-id="btn-${c.id}"]`)
+                                  ?.getBoundingClientRect().left + "px",
                             }}
                           >
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleEditClass(c); setActiveMenuId(null); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyClassCode(c.class_code);
+                                setActiveMenuId(null);
+                              }}
+                              className="px-4 py-2 text-sm text-left hover:bg-slate-50"
+                            >
+                              Copy Code
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClass(c);
+                                setActiveMenuId(null);
+                              }}
                               className="px-4 py-2 text-sm text-left hover:bg-slate-50"
                             >
                               Edit
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteClass(c); setActiveMenuId(null); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClass(c);
+                                setActiveMenuId(null);
+                              }}
                               className="px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50"
                             >
                               Delete
@@ -370,73 +426,92 @@ export default function Teacher_Dashboard() {
                   </h2>
                   <div className="flex items-center gap-4">
                     <button
-                      onClick={() => navigate("/teacher_create_task")}
+                      onClick={() =>
+                        navigate("/teacher_create_task", {
+                          state: { selectedClass },
+                        })
+                      }
                       className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm text-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
                     >
                       Create Task
                     </button>
                   </div>
                 </div>
-                {teacherTasks.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">No tasks yet.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {teacherTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm w-full relative flex flex-col justify-between min-h-[100px]"
-                      >
-                        <div>
-                          <p className="font-semibold text-slate-800 mb-1">
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {task.due_date
-                              ? `Due ${task.due_date}`
-                              : "No due date set"}
-                          </p>
-                        </div>
+                {(() => {
+                  // Filter tasks to only show those for the selected class
+                  const filteredTasks = teacherTasks.filter(
+                    (task) =>
+                      task.class_id === selectedClass.id ||
+                      task.class_id === null,
+                  );
+
+                  if (filteredTasks.length === 0) {
+                    return (
+                      <p className="text-sm text-slate-500 italic">
+                        No tasks yet for this class.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {filteredTasks.map((task) => (
                         <div
-                          className="absolute bottom-3 right-3"
-                          ref={activeMenuId === task.id ? dropdownRef : null}
+                          key={task.id}
+                          className="bg-white border border-[#cbd5e1] rounded-xl p-4 shadow-sm w-full relative flex flex-col justify-between min-h-[100px]"
                         >
-                          <button
-                            onClick={() =>
-                              setActiveMenuId(
-                                activeMenuId === task.id ? null : task.id,
-                              )
-                            }
-                            className="text-slate-400 font-bold text-lg cursor-pointer transition-all duration-200 hover:text-slate-600 hover:scale-110 active:scale-95"
+                          <div>
+                            <p className="font-semibold text-slate-800 mb-1">
+                              {task.title}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {task.due_date
+                                ? `Due ${task.due_date}`
+                                : "No due date set"}
+                            </p>
+                          </div>
+                          <div
+                            className="absolute bottom-3 right-3"
+                            ref={activeMenuId === task.id ? dropdownRef : null}
                           >
-                            ...
-                          </button>
-                          {activeMenuId === task.id && (
-                            <div className="absolute top-0 left-full ml-2 z-30 w-24 bg-white border border-slate-200 rounded-lg shadow-xl flex flex-col">
-                              <button
-                                onClick={() => {
-                                  handleEditTask(task);
-                                  setActiveMenuId(null);
-                                }}
-                                className="px-4 py-2 text-sm text-left cursor-pointer transition-all duration-200 hover:bg-slate-50"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleDeleteTask(task);
-                                  setActiveMenuId(null);
-                                }}
-                                className="px-4 py-2 text-sm text-left text-red-600 cursor-pointer transition-all duration-200 hover:bg-red-50"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
+                            <button
+                              onClick={() =>
+                                setActiveMenuId(
+                                  activeMenuId === task.id ? null : task.id,
+                                )
+                              }
+                              className="text-slate-400 font-bold text-lg cursor-pointer transition-all duration-200 hover:text-slate-600 hover:scale-110 active:scale-95"
+                            >
+                              ...
+                            </button>
+                            {activeMenuId === task.id && (
+                              <div className="absolute top-0 left-full ml-2 z-30 w-24 bg-white border border-slate-200 rounded-lg shadow-xl flex flex-col">
+                                <button
+                                  onClick={() => {
+                                    handleEditTask(task);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="px-4 py-2 text-sm text-left cursor-pointer transition-all duration-200 hover:bg-slate-50"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleDeleteTask(task);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="px-4 py-2 text-sm text-left text-red-600 cursor-pointer transition-all duration-200 hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Class Overview */}

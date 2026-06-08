@@ -333,7 +333,21 @@ export async function listAssignmentTasks(filters = {}) {
 
 /** Student to-do: open tasks only (hide after submission). */
 export async function fetchStudentTodoTasks(userId) {
+  console.log("fetchStudentTodoTasks called with userId:", userId);
+
+  // Get classes the student is enrolled in
+  const { data: studentClasses, error: classErr } =
+    await getStudentClasses(userId);
+  console.log("studentClasses result:", studentClasses, "error:", classErr);
+  if (classErr) return { data: null, error: classErr };
+
+  const enrolledClassIds = (studentClasses ?? [])
+    .map((sc) => sc.class_id)
+    .filter(Boolean);
+  console.log("enrolledClassIds:", enrolledClassIds);
+
   const { data: tasks, error: taskErr } = await listAssignmentTasks();
+  console.log("all tasks:", tasks, "error:", taskErr);
   if (taskErr) return { data: null, error: taskErr };
 
   const { data: docs, error: docErr } = await fetchDocuments({ userId });
@@ -350,7 +364,16 @@ export async function fetchStudentTodoTasks(userId) {
       .filter(Boolean),
   );
 
-  const open = (tasks ?? []).filter((t) => !completedIds.has(t.id));
+  // Filter to only tasks for enrolled classes, or tasks without a class (global tasks)
+  const open = (tasks ?? []).filter((t) => {
+    const isNotCompleted = !completedIds.has(t.id);
+    const isAccessible = !t.class_id || enrolledClassIds.includes(t.class_id);
+    console.log(
+      `Task ${t.id} (class_id: ${t.class_id}): not completed? ${isNotCompleted}, accessible? ${isAccessible}`,
+    );
+    return isNotCompleted && isAccessible;
+  });
+  console.log("final open tasks:", open);
   return { data: open, error: null };
 }
 
@@ -361,12 +384,23 @@ export async function fetchTeacherAssignmentTasks(teacherId) {
 }
 
 /** Submissions for essays tied to a teacher's assignments. */
-export async function fetchTeacherSubmissions(teacherId, { status } = {}) {
+export async function fetchTeacherSubmissions(
+  teacherId,
+  { status, classId } = {},
+) {
   return safeQuery(async () => {
     const { data: tasks, error: taskErr } =
       await fetchTeacherAssignmentTasks(teacherId);
     if (taskErr) return { data: null, error: taskErr };
-    const taskIds = (tasks ?? []).map((t) => t.id);
+
+    let filteredTasks = tasks ?? [];
+    if (classId) {
+      filteredTasks = filteredTasks.filter(
+        (t) => t.class_id === classId || t.class_id === null,
+      );
+    }
+
+    const taskIds = filteredTasks.map((t) => t.id);
     if (!taskIds.length) return { data: [], error: null };
 
     let query = supabase
@@ -427,7 +461,9 @@ export async function deleteAssignmentTask(id) {
 
 export async function listClasses(filters = {}) {
   return safeQuery(async () => {
-    let query = supabase.from("classes").select("*");
+    let query = supabase
+      .from("classes")
+      .select("*, teacher:users!teacher_id(*)");
     if (filters.teacherId) query = query.eq("teacher_id", filters.teacherId);
     return query.order("class_name", { ascending: true });
   }, "classes.list");
@@ -441,8 +477,26 @@ export async function getClassById(id) {
 }
 
 export async function createClass(classRow) {
+  // Generate random 6-character class code
+  const generateClassCode = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   return safeQuery(
-    async () => supabase.from("classes").insert(classRow).select().single(),
+    async () =>
+      supabase
+        .from("classes")
+        .insert({
+          ...classRow,
+          class_code: generateClassCode(),
+        })
+        .select()
+        .single(),
     "classes.create",
   );
 }
@@ -460,6 +514,56 @@ export async function deleteClass(id) {
     async () => supabase.from("classes").delete().eq("id", id),
     "classes.delete",
   );
+}
+
+export async function getClassByCode(classCode) {
+  return safeQuery(
+    async () =>
+      supabase
+        .from("classes")
+        .select("*, teacher:users!teacher_id(*)")
+        .eq("class_code", classCode)
+        .maybeSingle(),
+    "classes.getByCode",
+  );
+}
+
+export async function joinClass(studentId, classId) {
+  return safeQuery(
+    async () =>
+      supabase
+        .from("student_classes")
+        .insert({ student_id: studentId, class_id: classId })
+        .select()
+        .single(),
+    "studentClasses.join",
+  );
+}
+
+export async function unenrollFromClass(studentId, classId) {
+  return safeQuery(
+    async () =>
+      supabase
+        .from("student_classes")
+        .delete()
+        .eq("student_id", studentId)
+        .eq("class_id", classId),
+    "studentClasses.unenroll",
+  );
+}
+
+export async function getStudentClasses(studentId) {
+  return safeQuery(async () => {
+    console.log("getStudentClasses called with studentId:", studentId);
+    const result = await supabase
+      .from("student_classes")
+      .select(
+        "class_id, class:classes!class_id(*, teacher:users!teacher_id(*))",
+      )
+      .eq("student_id", studentId);
+    console.log("getStudentClasses raw result:", result);
+    return result;
+  }, "studentClasses.getByStudent");
 }
 
 // ---------------------------------------------------------------------------

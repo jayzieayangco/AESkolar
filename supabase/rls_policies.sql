@@ -20,6 +20,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rubrics TO anon, authentica
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.criteria TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.languages TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.score_details TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.student_classes TO anon, authenticated;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
@@ -39,6 +40,7 @@ ALTER TABLE public.rubrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.criteria ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.languages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.score_details ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_classes ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies (re-run safe)
 DO $$
@@ -49,7 +51,7 @@ BEGIN
     WHERE schemaname = 'public'
       AND tablename IN (
         'users','classes','assignment_tasks','documents','evaluations',
-        'feedback','rubrics','criteria','languages','score_details'
+        'feedback','rubrics','criteria','languages','score_details','student_classes'
       )
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
@@ -103,6 +105,24 @@ CREATE POLICY "documents_select_submitted_students" ON public.documents FOR SELE
 CREATE POLICY "classes_select" ON public.classes FOR SELECT TO authenticated USING (true);
 CREATE POLICY "classes_teacher_write" ON public.classes FOR ALL TO authenticated
   USING (teacher_id = auth.uid()) WITH CHECK (teacher_id = auth.uid());
+
+-- =============================================================================
+-- student_classes
+-- =============================================================================
+CREATE POLICY "student_classes_select_own" ON public.student_classes FOR SELECT TO authenticated
+  USING (student_id = auth.uid());
+CREATE POLICY "student_classes_insert_own" ON public.student_classes FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid());
+CREATE POLICY "student_classes_delete_own" ON public.student_classes FOR DELETE TO authenticated
+  USING (student_id = auth.uid());
+CREATE POLICY "student_classes_select_teacher" ON public.student_classes FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.classes
+      WHERE classes.id = student_classes.class_id
+        AND classes.teacher_id = auth.uid()
+    )
+  );
 
 -- =============================================================================
 -- evaluations, feedback, score_details
