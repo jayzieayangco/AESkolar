@@ -79,17 +79,28 @@ export default function Student_Dashboard() {
       alert("Submitted successfully.");
       setSelectedTask(null);
       const { data: tasks } = await fetchStudentTodoTasks(session.user.id);
-      setTodoTasks(
-        (tasks ?? []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          subject: "Assignment",
-          dueDate: t.created_at
-            ? `Due ${new Date(t.created_at).toLocaleDateString()}`
-            : "—",
-          instructions: t.instruction || "No instructions provided.",
-        })),
-      );
+      const mappedTasks = (tasks ?? []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        subject: "Assignment",
+        dueDate: t.created_at
+          ? `Due ${new Date(t.created_at).toLocaleDateString()}`
+          : "—",
+        instructions: t.instruction || "No instructions provided.",
+        class_id: t.class_id,
+      }));
+      setAllTasks(mappedTasks);
+      // Apply selected class filter
+      if (selectedClass) {
+        setTodoTasks(
+          mappedTasks.filter(
+            (task) =>
+              task.class_id === selectedClass.id || task.class_id === null,
+          ),
+        );
+      } else {
+        setTodoTasks(mappedTasks);
+      }
     } catch (err) {
       alert(err.message || "Submit failed.");
     } finally {
@@ -106,6 +117,7 @@ export default function Student_Dashboard() {
         ...sc.class,
         id: sc.class.id,
         teacherName: sc.class.teacher?.full_name || "Teacher",
+        teacherAvatarUrl: sc.class.teacher?.avatar_url || null,
       }));
       setClasses(mappedClasses);
     }
@@ -191,7 +203,12 @@ export default function Student_Dashboard() {
 
   useEffect(() => {
     if (selectedClass) {
-      setTodoTasks(allTasks.filter(task => task.class_id === selectedClass.id || task.class_id === null));
+      setTodoTasks(
+        allTasks.filter(
+          (task) =>
+            task.class_id === selectedClass.id || task.class_id === null,
+        ),
+      );
     } else {
       setTodoTasks(allTasks);
     }
@@ -498,8 +515,18 @@ export default function Student_Dashboard() {
                               {c.section || c.teacherName}
                             </p>
                           </div>
-                          <div className="w-14 h-14 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-                            <span className="text-3xl text-[#5b21b6]">👤</span>
+                          <div className="w-14 h-14 rounded-full bg-white border border-slate-200 flex items-center justify-center overflow-hidden">
+                            {c.teacherAvatarUrl ? (
+                              <img
+                                src={c.teacherAvatarUrl}
+                                alt={c.teacherName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-3xl text-[#5b21b6]">
+                                👤
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex-grow p-4">

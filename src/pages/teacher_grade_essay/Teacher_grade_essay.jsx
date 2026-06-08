@@ -9,6 +9,7 @@ import {
   releaseScore,
   fetchTeacherSubmissions,
   getUserProfile,
+  listClasses,
 } from "../../services/api.js";
 import { gradeEssayWithAI } from "@ai-engine/gradingEngine.js";
 import AppPageHeader from "../../components/AppPageHeader.jsx";
@@ -34,6 +35,8 @@ export default function Teacher_Grade_Essay() {
   const [isReleasing, setIsReleasing] = useState(false);
   const [lastEvaluationId, setLastEvaluationId] = useState(null);
   const [gradeMessage, setGradeMessage] = useState("");
+  const [classes, setClasses] = useState([]);
+  const [selectedClass, setSelectedClass] = useState(null);
 
   const sidebarItems = [
     "Dashboard",
@@ -51,13 +54,15 @@ export default function Teacher_Grade_Essay() {
     if (item === "Settings") navigate("/teacher_settings");
   };
 
-  const loadEssays = async () => {
+  const loadEssays = async (classId = null) => {
     const { session } = await getSession();
     if (!session) {
       navigate("/sign_in");
       return;
     }
-    const { data, error } = await fetchTeacherSubmissions(session.user.id);
+    const { data, error } = await fetchTeacherSubmissions(session.user.id, {
+      ...(classId && { classId }),
+    });
     if (error) {
       console.error(error);
       setEssays([]);
@@ -116,9 +121,26 @@ export default function Teacher_Grade_Essay() {
     }
   };
 
+  const loadTeacherClasses = async () => {
+    const { session } = await getSession();
+    if (!session) {
+      navigate("/sign_in");
+      return;
+    }
+    const { data } = await listClasses({ teacherId: session.user.id });
+    setClasses(data ?? []);
+  };
+
   useEffect(() => {
+    loadTeacherClasses();
     loadEssays();
   }, []);
+
+  const handleClassChange = (e) => {
+    const classId = e.target.value;
+    setSelectedClass(classId === "all" ? null : classId);
+    loadEssays(classId === "all" ? null : classId);
+  };
 
   const runAiProposal = async (essay) => {
     if (!essay?.content?.trim()) return;
@@ -282,12 +304,33 @@ export default function Teacher_Grade_Essay() {
             )}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="class-filter"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Filter by Class:
+              </label>
+              <select
+                id="class-filter"
+                value={selectedClass || "all"}
+                onChange={handleClassChange}
+                className="bg-white text-slate-800 font-medium py-2.5 px-4 border border-[#cbd5e1] rounded-xl shadow-sm text-sm transition-all duration-200 hover:border-[#7ba4cc] active:scale-[0.99] cursor-pointer"
+              >
+                <option value="all">All Classes</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.class_name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               type="button"
               onClick={handleExport}
               disabled={!essays.length}
-              className="bg-white text-slate-800 font-medium py-2.5 px-6 rounded-xl shadow-sm text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-white text-slate-800 font-medium py-2.5 px-6 rounded-xl shadow-sm text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-200"
             >
               Export
             </button>
