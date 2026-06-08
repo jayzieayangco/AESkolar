@@ -20,6 +20,12 @@ export default function Student_Dashboard() {
   const [gradedEssays, setGradedEssays] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const [classes, setClasses] = useState([]); // Array to hold joined classes
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [classCode, setClassCode] = useState("");
+
   // Detail View Active Overlays State
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedEssay, setSelectedEssay] = useState(null);
@@ -85,6 +91,38 @@ export default function Student_Dashboard() {
     }
   };
 
+  const openJoinModal = () => {
+    setClassCode("");
+    setShowJoinModal(true);
+  };
+
+  const handleJoinClass = () => {
+    if (!classCode.trim()) {
+      alert("Please enter a class code before joining.");
+      return;
+    }
+
+    const newClass = {
+      id: Date.now(),
+      class_name: "Sample Class A",
+      section: "Juan Dela Cruz",
+      teacherName: "Ms. Reyes",
+    };
+
+    setClasses((prev) => [...prev, newClass]);
+    setShowJoinModal(false);
+    setClassCode("");
+  };
+
+  const handleUnenroll = (cls) => {
+    if (!window.confirm(`Unenroll from ${cls.class_name}?`)) return;
+    setClasses((prev) => prev.filter((c) => c.id !== cls.id));
+    if (selectedClass?.id === cls.id) {
+      setSelectedClass(null);
+    }
+    setActiveMenuId(null);
+  };
+
   useEffect(() => {
     (async () => {
       const { session } = await getSession();
@@ -108,6 +146,20 @@ export default function Student_Dashboard() {
       setGradedEssays(graded ?? []);
     })();
   }, [navigate]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        !event.target.closest("[data-class-menu]") &&
+        !event.target.closest("[data-class-menu-btn]")
+      ) {
+        setActiveMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
@@ -233,15 +285,23 @@ export default function Student_Dashboard() {
             </div>
 
           /* BASE DASHBOARD LAYOUT GRID ROOT VIEW */
-          ) : (
+          ) : selectedClass ? (
             <>
-              <div>
-                <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
-                  Welcome back, {userName}!
-                </h1>
-                <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
-                  Here's what's happening with your tasks.
-                </p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
+                    Welcome back, {userName}!
+                  </h1>
+                  <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
+                    Dashboard for {selectedClass.class_name}.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedClass(null)}
+                  className="text-sm text-blue-600 underline w-fit cursor-pointer transition-all duration-200 hover:text-blue-700 hover:opacity-80 active:scale-95"
+                >
+                  ← Back to Classes
+                </button>
               </div>
 
               {/* TO-DO ASSIGNMENT BLOCK */}
@@ -313,6 +373,140 @@ export default function Student_Dashboard() {
                 </div>
               </div>
             </>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
+                    Welcome back, {userName}!
+                  </h1>
+                  <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
+                    Join a class to start viewing your assignments and feedback.
+                  </p>
+                </div>
+                <button
+                  onClick={openJoinModal}
+                  className="bg-white text-slate-800 font-medium py-3 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
+                >
+                  Join Class
+                </button>
+              </div>
+
+              {classes.length === 0 ? (
+                <div className="w-full h-160 flex flex-col items-center justify-center bg-[#c5ecff] rounded-xl text-[#1e293b]">
+                  <h2 className="text-4xl font-semibold tracking-wide">No Classes</h2>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    Classes you have will display here
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {classes.map((c) => (
+                    <div
+                      key={c.id}
+                      className="w-full h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative overflow-visible"
+                    >
+                      <div
+                        onClick={() => setSelectedClass(c)}
+                        className="flex flex-col flex-grow"
+                      >
+                        <div className="bg-[#7ba4cc] p-4 h-28 rounded-t-xl flex items-start justify-between gap-3">
+                          <div className="max-w-[calc(100%-4rem)]">
+                            <h3 className="font-bold text-lg text-white truncate">
+                              {c.class_name}
+                            </h3>
+                            <p className="text-sm text-white/90 mt-1 truncate">
+                              {c.section || c.teacherName}
+                            </p>
+                          </div>
+                          <div className="w-14 h-14 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+                            <span className="text-3xl text-[#5b21b6]">👤</span>
+                          </div>
+                        </div>
+                        <div className="flex-grow p-4">
+                          <p className="text-sm text-slate-500">
+                            {c.teacherName ? `Teacher: ${c.teacherName}` : "Teacher"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-100 p-2 flex justify-end relative">
+                        <button
+                          data-class-menu-btn
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActiveMenuId(
+                              activeMenuId === `class-${c.id}` ? null : `class-${c.id}`,
+                            );
+                          }}
+                          className="text-slate-600 font-bold text-lg hover:text-slate-900 px-2"
+                        >
+                          ...
+                        </button>
+                        {activeMenuId === `class-${c.id}` && (
+                          <div
+                            data-class-menu
+                            className="absolute bottom-14 right-3 z-30 w-32 bg-white border border-slate-200 rounded-xl shadow-xl"
+                          >
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleUnenroll(c);
+                              }}
+                              className="w-full px-4 py-3 text-sm text-left text-red-600 hover:bg-slate-50"
+                            >
+                              Unenroll
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {showJoinModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+              <div className="w-full max-w-md bg-white rounded-[28px] shadow-2xl border border-slate-200 p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Join Class</h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Ask your teacher for the class code, then enter it here.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowJoinModal(false)}
+                    className="text-slate-400 hover:text-slate-700 text-xl font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Class Code</label>
+                <input
+                  value={classCode}
+                  onChange={(event) => setClassCode(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900 outline-none transition focus:border-[#7ba4cc] focus:ring-2 focus:ring-[#7ba4cc]/20"
+                  placeholder="Class Code"
+                />
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowJoinModal(false)}
+                    className="bg-white text-slate-700 border border-slate-200 rounded-2xl px-5 py-2.5 font-medium hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleJoinClass}
+                    className="bg-[#7ba4cc] text-white rounded-2xl px-5 py-2.5 font-medium hover:bg-[#6996b3]"
+                  >
+                    Join
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
         </div>
