@@ -18,7 +18,7 @@ export default function SidebarProfileRow() {
         <SidebarProfileIcon />
       </div>
 
-      <div className="absolute left-1/2 transform -translate-x-1/2">
+      <div className="absolute right-6 transform -translate-x-1/2">
         <button
           type="button"
           onClick={handleLogout}

@@ -65,9 +65,6 @@ export default function Teacher_create_task() {
             <h3 className="font-semibold text-[#1e293b] mb-4">Attach</h3>
             <div className="flex gap-20 justify-center">
                 {[ 
-                {name: "Drive", img: "/drive.png"}, 
-                {name: "YouTube", img: "/youtube.png"}, 
-                {name: "Create", img: "/plus.png"}, 
                 {name: "Upload", img: "/upload.png"}, 
                 {name: "Link", img: "/link.png"} 
                 ].map((item) => (
@@ -103,22 +100,6 @@ export default function Teacher_create_task() {
                 onChange={(e) => setPoints(e.target.value)}
                 className="w-full p-2 border border-[#cbd5e1] rounded-lg outline-none hover:border-[#7ba4cc] focus:border-[#7ba4cc]"
             />
-            </div>
-        </div>
-
-        {/* Topic */}
-        <div className="flex flex-col gap-2">
-            <h3 className="font-semibold text-[#1e293b] text-sm">Topic</h3>
-            <div className="relative">
-            <select
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                className="w-full p-2 border border-[#cbd5e1] rounded-lg outline-none hover:border-[#7ba4cc] focus:border-[#7ba4cc] bg-white cursor-pointer appearance-none"
-            >
-                <option>No Topic</option>
-                <option>Math</option>
-                <option>Science</option>
-            </select>
             </div>
         </div>
 
