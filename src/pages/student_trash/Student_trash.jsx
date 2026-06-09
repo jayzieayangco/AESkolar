@@ -63,7 +63,8 @@ export default function Student_Trash() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   useEffect(() => {
@@ -80,8 +81,12 @@ export default function Student_Trash() {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      String(file.title ?? "").toLowerCase().includes(q) ||
-      String(file.content ?? "").toLowerCase().includes(q)
+      String(file.title ?? "")
+        .toLowerCase()
+        .includes(q) ||
+      String(file.content ?? "")
+        .toLowerCase()
+        .includes(q)
     );
   });
 
@@ -95,14 +100,20 @@ export default function Student_Trash() {
 
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 rounded-tr-2xl shadow-[5px_0_15px_rgba(0,0,0,0.05)]">
-          <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
+          <SidebarNav
+            items={sidebarItems}
+            activeTab={activeTab}
+            onNavigate={handleNavigation}
+          />
           <SidebarProfileRow />
         </div>
 
         <div className="flex-1 h-full flex flex-col gap-8 overflow-y-auto pr-2 pb-6">
           <h1 className="text-page-title">Trash</h1>
 
-          {errorMessage && <p className="text-red-600 text-sm font-medium">{errorMessage}</p>}
+          {errorMessage && (
+            <p className="text-red-600 text-sm font-medium">{errorMessage}</p>
+          )}
 
           {isLoading ? (
             <p className="text-slate-600 text-sm">Loading trash...</p>
@@ -117,7 +128,9 @@ export default function Student_Trash() {
             </div>
           ) : (
             <div className="flex flex-col gap-4 mt-2">
-              <h2 className="text-[32px] font-medium text-[#1e293b]/90 tracking-tight">Recent</h2>
+              <h2 className="text-[32px] font-medium text-[#1e293b]/90 tracking-tight">
+                Recent
+              </h2>
               <div className="grid-documents">
                 {filtered.map((file) => (
                   <div key={file.id} className="card-document">
@@ -125,10 +138,17 @@ export default function Student_Trash() {
                       <span className="text-lg font-medium text-[#334155] truncate max-w-[130px]">
                         {file.title}
                       </span>
-                      <div className="relative" ref={activeMenuId === file.id ? dropdownRef : null}>
+                      <div
+                        className="relative"
+                        ref={activeMenuId === file.id ? dropdownRef : null}
+                      >
                         <button
                           type="button"
-                          onClick={() => setActiveMenuId(activeMenuId === file.id ? null : file.id)}
+                          onClick={() =>
+                            setActiveMenuId(
+                              activeMenuId === file.id ? null : file.id,
+                            )
+                          }
                           className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 cursor-pointer"
                         >
                           <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block" />
@@ -150,7 +170,11 @@ export default function Student_Trash() {
                             <button
                               type="button"
                               onClick={async () => {
-                                if (window.confirm("Permanently delete this document?")) {
+                                if (
+                                  window.confirm(
+                                    "Permanently delete this document?",
+                                  )
+                                ) {
                                   await deleteDocument(file.id);
                                   loadTrash();
                                 }

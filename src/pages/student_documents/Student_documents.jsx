@@ -53,7 +53,11 @@ export default function Student_Documents() {
       role: "student",
     };
     const { data, error } = searchQuery.trim()
-      ? await searchDocuments({ ...filters, query: searchQuery.trim(), excludeStatus: "trash" })
+      ? await searchDocuments({
+          ...filters,
+          query: searchQuery.trim(),
+          excludeStatus: "trash",
+        })
       : await fetchDocuments(filters);
     if (error) {
       setErrorMessage(error.message || "Failed to load documents.");
@@ -76,7 +80,8 @@ export default function Student_Documents() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [loadDocuments]);
 
   const handleUploadClick = () => {
@@ -95,7 +100,11 @@ export default function Student_Documents() {
       setIsLoading(false);
       return;
     }
-    const { error } = await uploadDocumentFromFile(session.user.id, "student", file);
+    const { error } = await uploadDocumentFromFile(
+      session.user.id,
+      "student",
+      file,
+    );
     if (error) setErrorMessage(error.message || "Upload failed.");
     else await loadDocuments();
     setIsLoading(false);
@@ -125,16 +134,21 @@ export default function Student_Documents() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#c5ecff] pt-6 pr-6 font-sans overflow-hidden box-border gap-0">
-      
-      <AppPageHeader searchValue={searchQuery} onSearchChange={setSearchQuery} />
+      <AppPageHeader
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
       {/* MAIN CONTAINER LAYOUT */}
       <div className="flex flex-1 w-full gap-8 overflow-hidden">
-        
         {/* LEFT SIDEBAR PANEL */}
         <div className="w-[400px] bg-[#7ba4cc] h-full flex flex-col justify-between py-8 pl-4 relative shadow-[5px_0_15px_rgba(0,0,0,0.05)] rounded-tr-2xl">
           <div className="flex flex-col w-full">
-            <SidebarNav items={sidebarItems} activeTab={activeTab} onNavigate={handleNavigation} />
+            <SidebarNav
+              items={sidebarItems}
+              activeTab={activeTab}
+              onNavigate={handleNavigation}
+            />
           </div>
 
           <SidebarProfileRow />
@@ -142,7 +156,6 @@ export default function Student_Documents() {
 
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-8 overflow-y-auto box-border pr-2 pb-6">
-          
           <div>
             <h1 className="text-page-title">Documents</h1>
           </div>
@@ -151,11 +164,16 @@ export default function Student_Documents() {
             <p className="text-red-600 text-sm -mt-4">{errorMessage}</p>
           )}
 
-          <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} />
+          <input
+            type="file"
+            hidden
+            ref={fileInputRef}
+            onChange={handleFileChange}
+          />
 
           {/* Operational Core Utility Action Row Grid with Hover Effects */}
           <div className="flex items-center gap-6">
-            <button 
+            <button
               onClick={handleCreateDocument}
               className="bg-white text-slate-800 font-medium py-3 px-8 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.04)] cursor-pointer text-base transition-all duration-150 hover:bg-slate-50 hover:shadow-md active:scale-[0.98]"
             >
@@ -173,29 +191,27 @@ export default function Student_Documents() {
           {isLoading ? (
             <p className="text-slate-600 text-sm">Loading documents...</p>
           ) : documents.length === 0 ? (
-            
             /* EMPTY VIEW PORT */
             <div className="flex-1 flex flex-col items-center justify-center pr-24 pb-20 select-none animate-fadeIn">
               <h2 className="text-[44px] font-medium text-[#000000] tracking-tight mb-1 text-center">
                 Nothing here yet
               </h2>
               <p className="text-[11px] font-bold text-[#000000]/70 tracking-wide text-center leading-normal">
-                Your docs will appear here once you start one.<br />
+                Your docs will appear here once you start one.
+                <br />
                 Start writing a new doc.
               </p>
             </div>
-
           ) : (
-
             /* STANDARD POPULATED GRID CARD VIEW PORT */
             <div className="flex flex-col gap-4 mt-2 animate-fadeIn">
               <h2 className="text-[32px] font-medium text-[#1e293b]/90 tracking-tight">
                 Recent
               </h2>
-              
+
               <div className="grid-documents">
                 {documents.map((file) => (
-                  <div 
+                  <div
                     key={file.id}
                     className="card-document transition-all duration-200 hover:border-slate-300 hover:shadow-md"
                   >
@@ -203,10 +219,17 @@ export default function Student_Documents() {
                       <span className="text-lg font-medium text-[#334155] truncate max-w-[130px]">
                         {file.title}
                       </span>
-                      
-                      <div className="relative" ref={activeMenuId === file.id ? dropdownRef : null}>
-                        <button 
-                          onClick={() => setActiveMenuId(activeMenuId === file.id ? null : file.id)}
+
+                      <div
+                        className="relative"
+                        ref={activeMenuId === file.id ? dropdownRef : null}
+                      >
+                        <button
+                          onClick={() =>
+                            setActiveMenuId(
+                              activeMenuId === file.id ? null : file.id,
+                            )
+                          }
                           className="flex items-center gap-1 bg-[#7ba4cc]/20 hover:bg-[#7ba4cc]/40 px-2 py-1.5 rounded-md border border-[#7ba4cc]/30 transition-all cursor-pointer"
                         >
                           <span className="w-2.5 h-2.5 bg-[#7ba4cc] rounded-full inline-block"></span>
@@ -215,10 +238,14 @@ export default function Student_Documents() {
 
                         {activeMenuId === file.id && (
                           <div className="absolute left-full top-0 ml-1 z-30 w-32 bg-[#7ba4cc] border border-[#6993bc] rounded-lg shadow-lg overflow-hidden flex flex-col transform origin-top-left transition-all duration-100">
-                            <button 
+                            <button
                               onClick={() => {
                                 navigate("/student_essay_editor", {
-                                  state: { documentId: file.id, title: file.title, content: file.content },
+                                  state: {
+                                    documentId: file.id,
+                                    title: file.title,
+                                    content: file.content,
+                                  },
                                 });
                                 setActiveMenuId(null);
                               }}
@@ -226,13 +253,13 @@ export default function Student_Documents() {
                             >
                               Open
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDownload(file)}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               Download
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDelete(file)}
                               className="w-full text-left px-4 py-2 text-sm text-[#1e293b] font-medium hover:bg-red-500/20 transition-colors cursor-pointer"
                             >
@@ -251,7 +278,6 @@ export default function Student_Documents() {
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

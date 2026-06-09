@@ -54,77 +54,80 @@ export default function Teacher_Grade_Essay() {
     if (item === "Settings") navigate("/teacher_settings");
   };
 
-  const loadEssays = useCallback(async (classId = null) => {
-    const { session } = await getSession();
-    if (!session) {
-      navigate("/sign_in");
-      return;
-    }
-    const { data, error } = await fetchTeacherSubmissions(session.user.id, {
-      ...(classId && { classId }),
-    });
-    if (error) {
-      console.error(error);
-      setEssays([]);
-      return;
-    }
+  const loadEssays = useCallback(
+    async (classId = null) => {
+      const { session } = await getSession();
+      if (!session) {
+        navigate("/sign_in");
+        return;
+      }
+      const { data, error } = await fetchTeacherSubmissions(session.user.id, {
+        ...(classId && { classId }),
+      });
+      if (error) {
+        console.error(error);
+        setEssays([]);
+        return;
+      }
 
-    const filteredData = (data ?? []).filter(
-      (essay) => essay.status !== "graded",
-    );
+      const filteredData = (data ?? []).filter(
+        (essay) => essay.status !== "graded",
+      );
 
-    // Fetch student names for each essay
-    const essaysWithStudentNames = await Promise.all(
-      filteredData.map(async (essay) => {
-        if (essay.user_id) {
-          const { data: userData, error: userError } = await getUserProfile(
-            essay.user_id,
-          );
-          if (userError) {
-            console.error("Error fetching user profile:", userError);
+      // Fetch student names for each essay
+      const essaysWithStudentNames = await Promise.all(
+        filteredData.map(async (essay) => {
+          if (essay.user_id) {
+            const { data: userData, error: userError } = await getUserProfile(
+              essay.user_id,
+            );
+            if (userError) {
+              console.error("Error fetching user profile:", userError);
+            }
+            return {
+              ...essay,
+              studentName:
+                userData?.full_name ||
+                userData?.email?.split("@")[0] ||
+                "Unknown Student",
+            };
           }
           return {
             ...essay,
-            studentName:
+            studentName: "Unknown Student",
+          };
+        }),
+      );
+
+      setEssays(essaysWithStudentNames);
+
+      if (location.state?.essayId) {
+        const { data: doc } = await getDocumentById(location.state.essayId);
+        if (doc) {
+          // Add student name to the selected doc if it has user_id
+          if (doc.user_id) {
+            const { data: userData, error: userError } = await getUserProfile(
+              doc.user_id,
+            );
+            if (userError) {
+              console.error(
+                "Error fetching user profile for selected doc:",
+                userError,
+              );
+            }
+            doc.studentName =
               userData?.full_name ||
               userData?.email?.split("@")[0] ||
-              "Unknown Student",
-          };
-        }
-        return {
-          ...essay,
-          studentName: "Unknown Student",
-        };
-      }),
-    );
-
-    setEssays(essaysWithStudentNames);
-
-    if (location.state?.essayId) {
-      const { data: doc } = await getDocumentById(location.state.essayId);
-      if (doc) {
-        // Add student name to the selected doc if it has user_id
-        if (doc.user_id) {
-          const { data: userData, error: userError } = await getUserProfile(
-            doc.user_id,
-          );
-          if (userError) {
-            console.error(
-              "Error fetching user profile for selected doc:",
-              userError,
-            );
+              "Unknown Student";
+          } else {
+            doc.studentName = "Unknown Student";
           }
-          doc.studentName =
-            userData?.full_name ||
-            userData?.email?.split("@")[0] ||
-            "Unknown Student";
-        } else {
-          doc.studentName = "Unknown Student";
+          await handleSelectEssay(doc);
         }
-        await handleSelectEssay(doc);
       }
-    }
-  }, [navigate]);
+    },
+    [navigate],
+  );
 
   const loadTeacherClasses = useCallback(async () => {
     const { session } = await getSession();
@@ -149,7 +152,8 @@ export default function Teacher_Grade_Essay() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [selectedClass, loadEssays]);
 
   const handleClassChange = (e) => {
