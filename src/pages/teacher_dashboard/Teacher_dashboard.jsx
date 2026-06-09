@@ -351,8 +351,8 @@ export default function Teacher_Dashboard() {
                             {c.subject
                               ? `Subject: ${c.subject}`
                               : c.section
-                              ? `Section: ${c.section}`
-                              : "No subject added yet"}
+                                ? `Section: ${c.section}`
+                                : "No subject added yet"}
                           </p>
                         </div>
                       </div>

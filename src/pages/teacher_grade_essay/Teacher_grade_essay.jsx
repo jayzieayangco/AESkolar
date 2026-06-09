@@ -329,7 +329,7 @@ export default function Teacher_Grade_Essay() {
                 id="class-filter"
                 value={selectedClass || "all"}
                 onChange={handleClassChange}
-                className="bg-white text-slate-800 font-medium py-2.5 px-4 border border-[#cbd5e1] rounded-xl shadow-sm text-sm transition-all duration-200 hover:border-[#7ba4cc] active:scale-[0.99] cursor-pointer"
+                className="bg-white text-slate-800 font-medium py-2.5 px-4 border border-[#cbd5e1] rounded-xl shadow-sm text-sm transition-all duration-200 hover:border-[#7ba4cc] cursor-pointer"
               >
                 <option value="all">All Classes</option>
                 {classes.map((c) => (
