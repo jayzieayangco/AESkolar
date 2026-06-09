@@ -377,7 +377,7 @@ export default function Student_Dashboard() {
                   <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
                     Welcome back, {userName}!
                   </h1>
-                  <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
+                  <p className="text-xs text-slate-600 ml-0.5">
                     Dashboard for {selectedClass.class_name}.
                   </p>
                 </div>
@@ -479,7 +479,7 @@ export default function Student_Dashboard() {
                   <h1 className="text-[54px] font-bold text-[#1e293b] tracking-tight leading-none">
                     Welcome back, {userName}!
                   </h1>
-                  <p className="text-sm font-semibold text-slate-600 mt-1.5 ml-0.5">
+                  <p className="text-xs text-slate-600 ml-0.5">
                     Join a class to start viewing your assignments and feedback.
                   </p>
                 </div>

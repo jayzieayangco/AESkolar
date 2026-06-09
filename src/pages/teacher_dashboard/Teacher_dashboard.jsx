@@ -291,28 +291,32 @@ export default function Teacher_Dashboard() {
 
         {/* RIGHT CONTENT WORKSPACE */}
         <div className="flex-1 h-full flex flex-col gap-6 overflow-y-auto scrollbar-custom box-border pr-2 pb-6">
-          <div>
-            <h1 className="text-page-title">Welcome back, {userName}!</h1>
-            <p className="text-xs text-[#475569] tracking-wide">
-              {selectedClass
-                ? `Viewing dashboard for: ${selectedClass.class_name || selectedClass.name}`
-                : "Select a class to view your tasks and submissions."}
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-page-title">Welcome back, {userName}!</h1>
+              <p className="text-xs text-[#475569] tracking-wide">
+                {selectedClass
+                  ? `Viewing dashboard for: ${selectedClass.class_name || selectedClass.name}`
+                  : "Select a class to view your tasks and submissions."}
+              </p>
+            </div>
+            {!selectedClass && (
+              <button
+                onClick={openCreateModal}
+                className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
+              >
+                Create New Class
+              </button>
+            )}
           </div>
 
           {!selectedClass ? (
             /* LANDING VIEW */
             <div className="flex flex-col gap-6 pt-4">
-              <div className="flex justify-between items-center">
+              <div className="flex items-center">
                 <h2 className="text-base font-semibold text-[#1e293b]">
                   Classes
                 </h2>
-                <button
-                  onClick={openCreateModal}
-                  className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
-                >
-                  Create New Class
-                </button>
               </div>
               {classes.length === 0 ? (
                 <div className="w-full h-80 flex flex-col items-center justify-center bg-[#c5ecff] rounded-xl text-black">
@@ -326,29 +330,34 @@ export default function Teacher_Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {classes.map((c) => (
-                    // 1. Removed overflow-hidden from the card container to allow menu to render
                     <div
                       key={c.id}
-                      className="w-56 h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative"
+                      className="w-full h-56 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col relative overflow-visible"
                     >
-                      {/* Main Clickable Area */}
                       <div
                         onClick={() => setSelectedClass(c)}
                         className="flex flex-col flex-grow"
                       >
-                        <div className="bg-[#7ba4cc] p-4 h-24 flex flex-col justify-end rounded-t-xl">
+                        <div className="bg-[#7ba4cc] p-4 h-28 rounded-t-xl flex flex-col justify-end gap-2">
                           <h3 className="font-bold text-lg text-white truncate">
                             {c.class_name || c.name}
                           </h3>
                           <p className="text-sm text-white/90 truncate">
-                            {c.section || "No Section"}
+                            {c.section || c.subject || "No Section"}
                           </p>
                         </div>
-                        <div className="flex-grow" />
+                        <div className="flex-grow p-4">
+                          <p className="text-sm text-slate-500">
+                            {c.subject
+                              ? `Subject: ${c.subject}`
+                              : c.section
+                              ? `Section: ${c.section}`
+                              : "No subject added yet"}
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Footer */}
-                      <div className="p-2 border-t border-slate-100 flex justify-end relative">
+                      <div className="border-t border-slate-100 p-2 flex justify-end relative">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -358,27 +367,13 @@ export default function Teacher_Dashboard() {
                                 : `class-${c.id}`,
                             );
                           }}
-                          className="text-slate-600 font-bold text-lg hover:text-black px-2"
+                          className="text-slate-600 font-bold text-lg hover:text-slate-900 px-2"
                         >
                           ...
                         </button>
 
-                        {/* 2. Changed to fixed positioning and added a z-index to ensure it renders on top */}
                         {activeMenuId === `class-${c.id}` && (
-                          <div
-                            className="fixed z-[100] mt-8 w-36 bg-white border border-slate-200 rounded-lg shadow-xl cursor-pointer flex flex-col"
-                            style={{
-                              // This calculates the position based on the trigger button
-                              top:
-                                document
-                                  .querySelector(`[data-id="btn-${c.id}"]`)
-                                  ?.getBoundingClientRect().bottom + "px",
-                              left:
-                                document
-                                  .querySelector(`[data-id="btn-${c.id}"]`)
-                                  ?.getBoundingClientRect().left + "px",
-                            }}
-                          >
+                          <div className="absolute bottom-full right-3 mb-2 z-30 w-36 bg-white border border-slate-200 rounded-xl shadow-xl flex flex-col">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
