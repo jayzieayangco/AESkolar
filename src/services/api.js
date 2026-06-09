@@ -402,9 +402,7 @@ export async function fetchTeacherSubmissions(
 
     let filteredTasks = tasks ?? [];
     if (classId) {
-      filteredTasks = filteredTasks.filter(
-        (t) => t.class_id === classId || t.class_id === null,
-      );
+      filteredTasks = filteredTasks.filter((t) => t.class_id === classId);
     }
     console.log("filtered tasks for submissions:", filteredTasks);
 

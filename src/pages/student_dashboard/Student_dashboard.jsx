@@ -456,10 +456,10 @@ export default function Student_Dashboard() {
                           onClick={() => setSelectedEssay(essay)}
                           className="grid grid-cols-3 items-center text-slate-700 font-medium text-base py-4 px-6 bg-white cursor-pointer hover:bg-slate-50/80 transition-colors duration-150"
                         >
-                          <div className="text-slate-800 font-semibold">
+                          <div className="text-slate-800">
                             {essay.title}
                           </div>
-                          <div className="text-center font-bold text-emerald-600">
+                          <div className="text-center text-emerald-500">
                             {essay.score}
                           </div>
                           <div className="text-right text-sm text-slate-500">

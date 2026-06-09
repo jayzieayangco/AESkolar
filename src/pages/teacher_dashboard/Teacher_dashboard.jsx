@@ -11,6 +11,7 @@ import {
   deleteAssignmentTask,
   listAssignmentTasks,
   listClasses,
+  listEvaluations,
   createClass,
   updateClass,
   deleteClass,
@@ -103,7 +104,30 @@ export default function Teacher_Dashboard() {
         };
       }),
     );
-    setSubmissions(rows);
+
+    const gradedRows = await Promise.all(
+      (gradedDocs ?? []).map(async (doc) => {
+        const { data: student } = await getUserProfile(doc.user_id);
+        const { data: evaluations } = await listEvaluations({
+          essayId: doc.id,
+          status: "released",
+        });
+        const evaluation = evaluations?.[0];
+
+        return {
+          id: doc.id,
+          studentName: student?.full_name ?? "Student",
+          title: doc.title,
+          score:
+            evaluation?.total_score != null
+              ? evaluation.total_score
+              : (doc.score ?? "—"),
+          status: formatDocumentStatus(doc.status),
+        };
+      }),
+    );
+
+    setSubmissions([...rows, ...gradedRows]);
 
     const { data: tasks } = await fetchTeacherAssignmentTasks(session.user.id);
     setTeacherTasks(tasks ?? []);
@@ -596,7 +620,7 @@ export default function Teacher_Dashboard() {
                             <td className="py-3 px-6 text-sm text-slate-700">
                               {row.studentName}
                             </td>
-                            <td className="py-3 px-6 text-sm text-slate-700 text-center">
+                            <td className="py-3 px-6 text-sm text-emerald-500 text-center">
                               {row.score}
                             </td>
                             <td className="py-3 px-6 text-sm text-slate-700 text-center capitalize">
