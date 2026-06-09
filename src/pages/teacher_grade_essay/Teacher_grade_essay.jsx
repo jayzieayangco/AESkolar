@@ -69,9 +69,13 @@ export default function Teacher_Grade_Essay() {
       return;
     }
 
+    const filteredData = (data ?? []).filter(
+      (essay) => essay.status !== "graded",
+    );
+
     // Fetch student names for each essay
     const essaysWithStudentNames = await Promise.all(
-      (data ?? []).map(async (essay) => {
+      filteredData.map(async (essay) => {
         if (essay.user_id) {
           const { data: userData, error: userError } = await getUserProfile(
             essay.user_id,
