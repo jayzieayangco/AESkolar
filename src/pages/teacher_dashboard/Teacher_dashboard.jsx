@@ -300,14 +300,23 @@ export default function Teacher_Dashboard() {
                   : "Select a class to view your tasks and submissions."}
               </p>
             </div>
-            {!selectedClass && (
-              <button
-                onClick={openCreateModal}
-                className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
-              >
-                Create New Class
-              </button>
-            )}
+            <div className="flex items-center gap-4">
+              {!selectedClass ? (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-white text-slate-800 font-medium py-2.5 px-6 border border-[#cbd5e1] rounded-xl shadow-sm cursor-pointer text-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-95"
+                >
+                  Create New Class
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedClass(null)}
+                  className="text-sm text-blue-600 underline w-fit cursor-pointer transition-all duration-200 hover:text-blue-700 hover:opacity-80 active:scale-95"
+                >
+                  ← Back to Classes
+                </button>
+              )}
+            </div>
           </div>
 
           {!selectedClass ? (
@@ -415,13 +424,6 @@ export default function Teacher_Dashboard() {
           ) : (
             /* DASHBOARD VIEW */
             <div className="flex flex-col gap-6">
-              <button
-                onClick={() => setSelectedClass(null)}
-                className="text-sm text-blue-600 underline w-fit cursor-pointer transition-all duration-200 hover:text-blue-700 hover:opacity-80 active:scale-95"
-              >
-                ← Back to Classes
-              </button>
-
               {/* Your assignments */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
