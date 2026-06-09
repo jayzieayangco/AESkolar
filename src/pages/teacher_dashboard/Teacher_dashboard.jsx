@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   getSession,
@@ -58,7 +58,7 @@ export default function Teacher_Dashboard() {
     if (item === "Settings") navigate("/teacher_settings");
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const { session } = await getSession();
     if (!session) {
       navigate("/sign_in");
@@ -134,15 +134,15 @@ export default function Teacher_Dashboard() {
 
     const { data: cls } = await listClasses({ teacherId: session.user.id });
     setClasses(cls ?? []);
-  };
+  }, [navigate, selectedClass]);
 
   useEffect(() => {
     // Initial load, reload when location changes, or selected class changes
     loadData();
-  }, [location.pathname, selectedClass]);
+  }, [location.pathname, selectedClass, loadData]);
 
   useEffect(() => {
-    // Reload data when the page is visible
+    // Reload data when the page is visible, honoring the current class filter
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         loadData();
@@ -154,7 +154,7 @@ export default function Teacher_Dashboard() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [selectedClass, loadData]);
 
   useEffect(() => {
     function handleClickOutside(event) {

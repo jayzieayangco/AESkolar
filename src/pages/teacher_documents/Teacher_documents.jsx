@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getSession,
@@ -38,7 +38,7 @@ export default function Teacher_Documents() {
     navigate("/teacher_essay_editor");
   };
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage("");
     const { session } = await getSession();
@@ -56,11 +56,22 @@ export default function Teacher_Documents() {
     if (error) setErrorMessage(error.message);
     else setDocuments(data || []);
     setIsLoading(false);
-  };
+  }, [navigate, searchQuery]);
 
   useEffect(() => {
     loadDocuments();
-  }, [searchQuery]);
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadDocuments();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [loadDocuments]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 

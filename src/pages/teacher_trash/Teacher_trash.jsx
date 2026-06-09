@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getSession,
@@ -31,7 +31,7 @@ export default function Teacher_Trash() {
     if (item === "Settings") navigate("/teacher_settings");
   };
 
-  const loadTrash = async () => {
+  const loadTrash = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage("");
     const { session } = await getSession();
@@ -50,10 +50,21 @@ export default function Teacher_Trash() {
       setTrashItems(data ?? []);
     }
     setIsLoading(false);
-  };
+  }, [navigate]);
 
   useEffect(() => {
     loadTrash();
+  }, [loadTrash]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadTrash();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   useEffect(() => {

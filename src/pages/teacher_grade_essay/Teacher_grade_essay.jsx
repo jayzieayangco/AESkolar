@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   getSession,
@@ -54,7 +54,7 @@ export default function Teacher_Grade_Essay() {
     if (item === "Settings") navigate("/teacher_settings");
   };
 
-  const loadEssays = async (classId = null) => {
+  const loadEssays = useCallback(async (classId = null) => {
     const { session } = await getSession();
     if (!session) {
       navigate("/sign_in");
@@ -99,6 +99,7 @@ export default function Teacher_Grade_Essay() {
     );
 
     setEssays(essaysWithStudentNames);
+
     if (location.state?.essayId) {
       const { data: doc } = await getDocumentById(location.state.essayId);
       if (doc) {
@@ -123,9 +124,9 @@ export default function Teacher_Grade_Essay() {
         await handleSelectEssay(doc);
       }
     }
-  };
+  }, [navigate]);
 
-  const loadTeacherClasses = async () => {
+  const loadTeacherClasses = useCallback(async () => {
     const { session } = await getSession();
     if (!session) {
       navigate("/sign_in");
@@ -133,12 +134,23 @@ export default function Teacher_Grade_Essay() {
     }
     const { data } = await listClasses({ teacherId: session.user.id });
     setClasses(data ?? []);
-  };
+  }, [navigate]);
 
   useEffect(() => {
     loadTeacherClasses();
     loadEssays();
-  }, []);
+  }, [loadTeacherClasses, loadEssays]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadEssays(selectedClass);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [selectedClass, loadEssays]);
 
   const handleClassChange = (e) => {
     const classId = e.target.value;
