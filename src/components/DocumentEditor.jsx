@@ -156,7 +156,7 @@ export default function DocumentEditor({
       </div>
 
       <div className="w-[340px] md:w-[380px] h-full flex flex-col gap-4">
-        <div className="h-[220px] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
+        <div className="h-[270px] bg-white border border-[#cbd5e1] rounded-lg p-5 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1e293b]">Score</h2>
             {isGrading && <span className="text-xs font-medium text-slate-500">Grading…</span>}
