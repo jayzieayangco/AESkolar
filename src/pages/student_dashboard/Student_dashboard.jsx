@@ -124,6 +124,8 @@ export default function Student_Dashboard() {
         : "—",
       instructions: t.instruction || "No instructions provided.",
       class_id: t.class_id,
+      attachments: t.attachments || [],
+      links: t.links || [],
     }));
     setAllTasks(mappedTasks);
     // Apply selected class filter
@@ -301,6 +303,51 @@ export default function Student_Dashboard() {
                     {selectedTask.instructions}
                   </p>
                 </div>
+
+                {/* Attachments */}
+                {selectedTask.attachments &&
+                  selectedTask.attachments.length > 0 && (
+                    <div className="mt-6 flex flex-col gap-2">
+                      <span className="text-sm font-bold text-slate-400 tracking-wide uppercase">
+                        Attachments:
+                      </span>
+                      <div className="flex flex-col gap-2">
+                        {selectedTask.attachments.map((attachment, idx) => (
+                          <a
+                            key={idx}
+                            href={attachment.url || attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline text-base font-medium"
+                          >
+                            📎 {attachment.name || "Attachment " + (idx + 1)}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Links */}
+                {selectedTask.links && selectedTask.links.length > 0 && (
+                  <div className="mt-6 flex flex-col gap-2">
+                    <span className="text-sm font-bold text-slate-400 tracking-wide uppercase">
+                      Links:
+                    </span>
+                    <div className="flex flex-col gap-2">
+                      {selectedTask.links.map((link, idx) => (
+                        <a
+                          key={idx}
+                          href={link.url || link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline text-base font-medium"
+                        >
+                          {link.name || link.url || link}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Open Editor & Submit Action buttons */}
@@ -456,9 +503,7 @@ export default function Student_Dashboard() {
                           onClick={() => setSelectedEssay(essay)}
                           className="grid grid-cols-3 items-center text-slate-700 font-medium text-base py-4 px-6 bg-white cursor-pointer hover:bg-slate-50/80 transition-colors duration-150"
                         >
-                          <div className="text-slate-800">
-                            {essay.title}
-                          </div>
+                          <div className="text-slate-800">{essay.title}</div>
                           <div className="text-center text-emerald-500">
                             {essay.score}
                           </div>
